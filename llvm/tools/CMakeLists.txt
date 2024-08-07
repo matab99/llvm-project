@@ -52,6 +52,7 @@ add_llvm_external_project(bolt)
 add_llvm_implicit_projects()
 
 add_llvm_external_project(polly)
+add_llvm_external_project(playground)
 
 # libclc depends on clang
 add_llvm_external_project(libclc)

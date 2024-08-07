@@ -1,0 +1,44 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "hidden": true,
+            "name": "windows",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "LLVM_ENABLE_PROJECTS" : "clang;clang-tools-extra;playground"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "win-x64-debug",
+            "displayName": "Windows x64 Debug",
+            "inherits": "windows",
+            "binaryDir": "${sourceDir}/../build/x64/debug",
+            "installDir": "${sourceDir}/../install/x64/debug",
+			"architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreadedDebug",
+                "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "ProgramDatabase"
+            }
+        },
+        {
+            "name": "win-x64-release",
+            "displayName": "Windows x64 Release",
+            "inherits": "windows",
+            "binaryDir": "${sourceDir}/../build/x64/release",
+            "installDir": "${sourceDir}/../install/x64/release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        }
+    ]
+}
