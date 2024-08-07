@@ -788,6 +788,7 @@ public:
 
   bool VisitCXXNewExpr(CXXNewExpr *E) {
     auto &Token = H.addToken(E->getBeginLoc(), HighlightingKind::Operator);
+    Token.addModifier(HighlightingModifier::ConstructorOrDestructor);
     if (isa_and_present<CXXMethodDecl>(E->getOperatorNew()))
       Token.addModifier(HighlightingModifier::UserDefined);
     return true;
@@ -795,6 +796,7 @@ public:
 
   bool VisitCXXDeleteExpr(CXXDeleteExpr *E) {
     auto &Token = H.addToken(E->getBeginLoc(), HighlightingKind::Operator);
+    Token.addModifier(HighlightingModifier::ConstructorOrDestructor);
     if (isa_and_present<CXXMethodDecl>(E->getOperatorDelete()))
       Token.addModifier(HighlightingModifier::UserDefined);
     return true;
