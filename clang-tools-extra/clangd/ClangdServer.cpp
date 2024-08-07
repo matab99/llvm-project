@@ -33,6 +33,7 @@
 #include "support/Context.h"
 #include "support/Logger.h"
 #include "support/MemoryTree.h"
+#include "support/Path.h"
 #include "support/ThreadsafeFS.h"
 #include "support/Trace.h"
 #include "clang/Basic/Stack.h"
@@ -62,8 +63,8 @@ namespace clangd {
 namespace {
 
 // Tracks number of times a tweak has been offered.
-static constexpr trace::Metric TweakAvailable(
-    "tweak_available", trace::Metric::Counter, "tweak_id");
+static constexpr trace::Metric
+    TweakAvailable("tweak_available", trace::Metric::Counter, "tweak_id");
 
 // Update the FileIndex with new ASTs and plumb the diagnostics responses.
 struct UpdateIndexCallbacks : public ParsingCallbacks {
@@ -218,6 +219,7 @@ ClangdServer::ClangdServer(const GlobalCompilationDatabase &CDB,
       DynamicIdx(Opts.BuildDynamicSymbolIndex ? new FileIndex() : nullptr),
       ModulesManager(Opts.ModulesManager),
       ClangTidyProvider(Opts.ClangTidyProvider),
+      ContextProvider(Opts.ContextProvider),
       UseDirtyHeaders(Opts.UseDirtyHeaders),
       LineFoldingOnly(Opts.LineFoldingOnly),
       PreambleParseForwardingFunctions(Opts.PreambleParseForwardingFunctions),
@@ -331,6 +333,11 @@ std::shared_ptr<const std::string> ClangdServer::getDraft(PathRef File) const {
   if (!Draft)
     return nullptr;
   return std::move(Draft->Contents);
+}
+
+const Config &ClangdServer::getConfig(PathRef File) const {
+  const auto *Context = ContextProvider(File).get(Config::Key);
+  return Context ? *Context : Config::current();
 }
 
 std::function<Context(PathRef)>
@@ -946,9 +953,20 @@ void ClangdServer::foldingRanges(llvm::StringRef File,
     return CB(llvm::make_error<LSPError>(
         "trying to compute folding ranges for non-added document",
         ErrorCode::InvalidParams));
-  auto Action = [LineFoldingOnly = LineFoldingOnly, CB = std::move(CB),
-                 Code = std::move(*Code)]() mutable {
-    CB(clangd::getFoldingRanges(Code, LineFoldingOnly));
+
+  const auto &Config = getConfig(File);
+  FoldingRangeOptions Options;
+  Options.FoldRoundBrackets = Config.FoldingRanges.FoldRoundBrackets;
+  Options.FoldSquareBrackets = Config.FoldingRanges.FoldSquareBrackets;
+  Options.FoldAngleBrackets = Config.FoldingRanges.FoldAngleBrackets;
+  Options.FoldComments = Config.FoldingRanges.FoldComments;
+  Options.PropagateBracketRanges = Config.FoldingRanges.PropagateBracketRanges;
+  Options.IncludeTrailingBracket = Config.FoldingRanges.IncludeTrailingBracket;
+  Options.LineFoldingOnly = LineFoldingOnly;
+
+  auto Action = [CB = std::move(CB), Code = std::move(*Code),
+                 Options = std::move(Options)]() mutable {
+    CB(clangd::getFoldingRanges(Code, Options));
   };
   // We want to make sure folding ranges are always available for all the open
   // files, hence prefer runQuick to not wait for operations on other files.

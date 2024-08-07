@@ -20,6 +20,17 @@
 namespace clang {
 namespace clangd {
 
+struct FoldingRangeOptions
+{
+    bool FoldComments = true;
+    bool FoldRoundBrackets = true;
+    bool FoldSquareBrackets = true;
+    bool FoldAngleBrackets = true;
+    bool PropagateBracketRanges = false;
+    bool IncludeTrailingBracket = false;
+    bool LineFoldingOnly = true;
+};
+
 /// Returns the list of all interesting ranges around the Position \p Pos.
 /// The interesting ranges corresponds to the AST nodes in the SelectionTree
 /// containing \p Pos.
@@ -34,6 +45,12 @@ llvm::Expected<std::vector<FoldingRange>> getFoldingRanges(ParsedAST &AST);
 /// This version uses the pseudoparser which does not require the AST.
 llvm::Expected<std::vector<FoldingRange>>
 getFoldingRanges(const std::string &Code, bool LineFoldingOnly);
+
+/// Returns a list of ranges whose contents might be collapsible in an editor.
+/// This version uses the lexer in raw mode which does not require the AST.
+llvm::Expected<std::vector<FoldingRange>>
+getFoldingRanges(const std::string &Code, const FoldingRangeOptions& Options);
+
 
 } // namespace clangd
 } // namespace clang

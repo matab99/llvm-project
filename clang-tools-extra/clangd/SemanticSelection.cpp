@@ -107,6 +107,58 @@ collectFoldingRanges(const syntax::Node *Root,
   return Result;
 }
 
+clang::LangOptions genericLangOpts() {
+  auto Opts = clang::LangOptions();
+  auto Includes = std::vector<std::string>();
+  auto Language = clang::Language::CXX;
+  auto T = llvm::Triple();
+  auto Standard = clang::LangStandard::lang_unspecified;
+  LangOptions::setLangDefaults(Opts, Language, T, Includes, Standard);
+
+  Opts.CXXOperatorNames = Opts.CPlusPlus ? true : Opts.CXXOperatorNames;
+  Opts.MicrosoftExt = Opts.CPlusPlus ? true : Opts.MicrosoftExt;
+  Opts.Coroutines = Opts.CPlusPlus20 ? true : Opts.Coroutines;
+  Opts.DeclSpecKeyword = true;
+  Opts.WChar = true;
+
+  return Opts;
+}
+
+std::vector<Token> tokenize(const std::string &Code) {
+  auto Start = clang::SourceLocation();
+  auto Opts = genericLangOpts();
+  auto Lexer = clang::Lexer(Start, Opts, Code.data(), Code.data(),
+                            Code.data() + Code.size());
+
+  auto Result = std::vector<clang::Token>();
+  auto CT = clang::Token();
+
+  do {
+    Lexer.LexFromRawLexer(CT);
+    Result.push_back(CT);
+  } while (!CT.is(tok::eof));
+
+  return Result;
+}
+
+std::vector<FoldingRange>
+collectBracketRanges(const std::vector<Token> &Tokens,
+                     const FoldingRangeOptions &Options) {
+  return {};
+}
+
+std::vector<FoldingRange>
+collectDirectiveRanges(const std::vector<Token> &Tokens,
+                       const FoldingRangeOptions &Options) {
+  return {};
+}
+
+std::vector<FoldingRange>
+collectCommentRanges(const std::vector<Token> &Tokens,
+                     const FoldingRangeOptions &Options) {
+  return {};
+}
+
 } // namespace
 
 llvm::Expected<SelectionRange> getSemanticRanges(ParsedAST &AST, Position Pos) {
@@ -267,6 +319,22 @@ getFoldingRanges(const std::string &Code, bool LineFoldingOnly) {
     }
     AddFoldingRange(Start, End, FoldingRange::COMMENT_KIND);
   }
+  return Result;
+}
+
+llvm::Expected<std::vector<FoldingRange>>
+getFoldingRanges(const std::string &Code, const FoldingRangeOptions &Options) {
+  auto Tokens = tokenize(Code);
+  auto Result = std::vector<FoldingRange>();
+
+  auto DirectiveRanges = collectDirectiveRanges(Tokens, Options);
+  auto CommentRanges = collectCommentRanges(Tokens, Options);
+  auto BracketRanges = collectBracketRanges(Tokens, Options);
+
+  Result.insert(Result.end(), DirectiveRanges.begin(), DirectiveRanges.end());
+  Result.insert(Result.end(), CommentRanges.begin(), CommentRanges.end());
+  Result.insert(Result.end(), BracketRanges.begin(), BracketRanges.end());
+
   return Result;
 }
 

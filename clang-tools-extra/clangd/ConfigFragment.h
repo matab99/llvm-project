@@ -344,6 +344,24 @@ struct Fragment {
     std::vector<Located<std::string>> DisabledModifiers;
   };
   SemanticTokensBlock SemanticTokens;
+  
+  struct FoldingRangesBlock {
+    /// Enables folding multiline comments.
+    std::optional<Located<bool>> FoldComments;
+    /// Enables folding multiline ( ... ) expressions.
+    std::optional<Located<bool>> FoldRoundBrackets;
+    /// Enables folding multiline [ ... ] expressions.
+    std::optional<Located<bool>> FoldSquareBrackets;
+    /// Enables folding multiline < ... > expressions.
+    std::optional<Located<bool>> FoldAngleBrackets;
+    /// Merges adjacent folding ranges upwards if they are related to
+    /// the same logical section (e.g. symbol definition, if statement etc.).
+    std::optional<Located<bool>> PropagateBracketRanges;
+    /// Include trailing line containing closing bracket when computing
+    /// folding range.
+    std::optional<Located<bool>> IncludeTrailingBracket;
+  };
+  FoldingRangesBlock FoldingRanges;
 };
 
 } // namespace config

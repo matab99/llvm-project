@@ -69,6 +69,7 @@ public:
     Dict.handle("Hover", [&](Node &N) { parse(F.Hover, N); });
     Dict.handle("InlayHints", [&](Node &N) { parse(F.InlayHints, N); });
     Dict.handle("SemanticTokens", [&](Node &N) { parse(F.SemanticTokens, N); });
+    Dict.handle("FoldingRanges", [&](Node &N) { parse(F.FoldingRanges, N); });
     Dict.parse(N);
     return !(N.failed() || HadError);
   }
@@ -280,6 +281,35 @@ private:
     Dict.handle("DisabledModifiers", [&](Node &N) {
       if (auto Values = scalarValues(N))
         F.DisabledModifiers = std::move(*Values);
+    });
+    Dict.parse(N);
+  }
+  
+  void parse(Fragment::FoldingRangesBlock &F, Node &N) {
+    DictParser Dict("FoldingRanges", this);
+    Dict.handle("FoldComments", [&](Node &N) {
+      if (auto Value = boolValue(N, "FoldComments"))
+        F.FoldComments = *Value;
+    });
+    Dict.handle("FoldRoundBrackets", [&](Node &N) {
+      if (auto Value = boolValue(N, "FoldRoundBrackets"))
+        F.FoldRoundBrackets = *Value;
+    });
+    Dict.handle("FoldSquareBrackets", [&](Node &N) {
+      if (auto Value = boolValue(N, "FoldSquareBrackets"))
+        F.FoldSquareBrackets = *Value;
+    });
+    Dict.handle("FoldAngleBrackets", [&](Node &N) {
+      if (auto Value = boolValue(N, "FoldAngleBrackets"))
+        F.FoldAngleBrackets = *Value;
+    });
+    Dict.handle("PropagateBracketRanges", [&](Node &N) {
+      if (auto Value = boolValue(N, "PropagateBracketRanges"))
+        F.PropagateBracketRanges = *Value;
+    });
+    Dict.handle("IncludeTrailingBracket", [&](Node &N) {
+      if (auto Value = boolValue(N, "IncludeTrailingBracket"))
+        F.IncludeTrailingBracket = *Value;
     });
     Dict.parse(N);
   }

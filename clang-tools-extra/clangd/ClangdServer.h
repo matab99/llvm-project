@@ -449,6 +449,10 @@ public:
   /// Gets the contents of a currently tracked file. Returns nullptr if the file
   /// isn't being tracked.
   std::shared_ptr<const std::string> getDraft(PathRef File) const;
+  
+  /// Gets configuration object from context provider for a given file path or
+  /// reference to a default static Config instance from empty Context.
+  const Config &getConfig(PathRef File) const;
 
   // Blocks the main thread until the server is idle. Only for use in tests.
   // Returns false if the timeout expires.
@@ -486,6 +490,8 @@ private:
 
   // When set, provides clang-tidy options for a specific file.
   TidyProviderRef ClangTidyProvider;
+
+  std::function<Context(PathRef)> ContextProvider;
 
   bool UseDirtyHeaders = false;
 

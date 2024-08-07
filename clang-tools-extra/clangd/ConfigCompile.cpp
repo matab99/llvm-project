@@ -198,6 +198,7 @@ struct FragmentCompiler {
     compile(std::move(F.Hover));
     compile(std::move(F.InlayHints));
     compile(std::move(F.SemanticTokens));
+    compile(std::move(F.FoldingRanges));
     compile(std::move(F.Style));
   }
 
@@ -504,10 +505,10 @@ struct FragmentCompiler {
       auto Fast = isFastTidyCheck(Str);
       if (!Fast.has_value()) {
         diag(Warning,
-             llvm::formatv(
-                 "Latency of clang-tidy check '{0}' is not known. "
-                 "It will only run if ClangTidy.FastCheckFilter is Loose or None",
-                 Str)
+             llvm::formatv("Latency of clang-tidy check '{0}' is not known. "
+                           "It will only run if ClangTidy.FastCheckFilter is "
+                           "Loose or None",
+                           Str)
                  .str(),
              Arg.Range);
       } else if (!*Fast) {
@@ -690,6 +691,38 @@ struct FragmentCompiler {
         }
       });
     }
+  }
+
+  void compile(Fragment::FoldingRangesBlock &&F) {
+    if (F.FoldComments)
+      Out.Apply.push_back([Value(**F.FoldComments)](const Params &, Config &C) {
+        C.FoldingRanges.FoldComments = Value;
+      });
+    if (F.FoldRoundBrackets)
+      Out.Apply.push_back(
+          [Value(**F.FoldRoundBrackets)](const Params &, Config &C) {
+            C.FoldingRanges.FoldRoundBrackets = Value;
+          });
+    if (F.FoldSquareBrackets)
+      Out.Apply.push_back(
+          [Value(**F.FoldSquareBrackets)](const Params &, Config &C) {
+            C.FoldingRanges.FoldSquareBrackets = Value;
+          });
+    if (F.FoldAngleBrackets)
+      Out.Apply.push_back(
+          [Value(**F.FoldAngleBrackets)](const Params &, Config &C) {
+            C.FoldingRanges.FoldAngleBrackets = Value;
+          });
+    if (F.PropagateBracketRanges)
+      Out.Apply.push_back(
+          [Value(**F.PropagateBracketRanges)](const Params &, Config &C) {
+            C.FoldingRanges.PropagateBracketRanges = Value;
+          });
+    if (F.IncludeTrailingBracket)
+      Out.Apply.push_back(
+          [Value(**F.IncludeTrailingBracket)](const Params &, Config &C) {
+            C.FoldingRanges.IncludeTrailingBracket = Value;
+          });
   }
 
   constexpr static llvm::SourceMgr::DiagKind Error = llvm::SourceMgr::DK_Error;

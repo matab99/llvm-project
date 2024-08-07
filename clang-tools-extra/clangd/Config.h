@@ -158,6 +158,23 @@ struct Config {
     /// Controls highlighting modifiers that are disabled.
     std::vector<std::string> DisabledModifiers;
   } SemanticTokens;
+  
+  struct {
+    /// Enables folding multiline comments.
+    bool FoldComments;
+    /// Enables folding multiline ( ... ) expressions.
+    bool FoldRoundBrackets;
+    /// Enables folding multiline [ ... ] expressions.
+    bool FoldSquareBrackets;
+    /// Enables folding multiline < ... > expressions.
+    bool FoldAngleBrackets;
+    /// Merges adjacent folding ranges upwards if they are related to
+    /// the same logical section (e.g. symbol definition, if statement etc.).
+    bool PropagateBracketRanges;
+    /// Include trailing line containing closing bracket when computing
+    /// folding range.
+    bool IncludeTrailingBracket;
+  } FoldingRanges;
 };
 
 } // namespace clangd
