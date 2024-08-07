@@ -4045,10 +4045,6 @@ Expected<FormatStyle> getStyle(StringRef StyleName, StringRef FileName,
       return Style;
   }
 
-  SmallString<128> Path(FileName);
-  if (std::error_code EC = FS->makeAbsolute(Path))
-    return make_string_error(EC.message());
-
   // Reset possible inheritance
   Style.InheritsParentConfig = false;
 
@@ -4066,26 +4062,38 @@ Expected<FormatStyle> getStyle(StringRef StyleName, StringRef FileName,
   };
 
   // Look for .clang-format/_clang-format file in the file's parent directories.
-  SmallVector<std::string, 2> FilesToLookFor;
+  llvm::SmallVector<std::string, 2> FilesToLookFor;
   FilesToLookFor.push_back(".clang-format");
   FilesToLookFor.push_back("_clang-format");
 
-  SmallString<128> UnsuitableConfigFiles;
+  llvm::SmallVector<StringRef> DirsToLookFor;
+
+  SmallString<128> Path(FileName);
+  if (std::error_code EC = FS->makeAbsolute(Path))
+    return make_string_error(EC.message());
+
   for (StringRef Directory = Path; !Directory.empty();
        Directory = llvm::sys::path::parent_path(Directory)) {
     auto Status = FS->status(Directory);
-    if (!Status ||
-        Status->getType() != llvm::sys::fs::file_type::directory_file) {
-      continue;
-    }
+    if (Status && Status->getType() == llvm::sys::fs::file_type::directory_file)
+      DirsToLookFor.push_back(Directory);
+  }
 
+  llvm::SmallVector<char> UserConfigDirectory;
+  if (llvm::sys::path::user_config_directory(UserConfigDirectory)) {
+    llvm::sys::path::append(UserConfigDirectory, "clangd");
+    DirsToLookFor.push_back(StringRef(UserConfigDirectory.data()));
+  }
+
+  SmallString<128> UnsuitableConfigFiles;
+  for (const auto &D : DirsToLookFor) {
     for (const auto &F : FilesToLookFor) {
-      SmallString<128> ConfigFile(Directory);
+      SmallString<128> ConfigFile(D);
 
       llvm::sys::path::append(ConfigFile, F);
       LLVM_DEBUG(llvm::dbgs() << "Trying " << ConfigFile << "...\n");
 
-      Status = FS->status(ConfigFile);
+      auto Status = FS->status(ConfigFile);
       if (!Status ||
           Status->getType() != llvm::sys::fs::file_type::regular_file) {
         continue;
