@@ -4082,6 +4082,7 @@ Expected<FormatStyle> getStyle(StringRef StyleName, StringRef FileName,
   llvm::SmallVector<char> UserConfigDirectory;
   if (llvm::sys::path::user_config_directory(UserConfigDirectory)) {
     llvm::sys::path::append(UserConfigDirectory, "clangd");
+    UserConfigDirectory.push_back('\0');
     DirsToLookFor.push_back(StringRef(UserConfigDirectory.data()));
   }
 
