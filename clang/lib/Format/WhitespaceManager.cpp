@@ -1672,9 +1672,14 @@ void WhitespaceManager::generateChanges() {
                                  C.PreviousEndOfTokenColumn,
                                  C.EscapedNewlineColumn);
       } else {
-        auto LastNewlineIndent = (i > 0) ? Changes[i - 1].Tok->IndentLevel : 0;
-        auto NewNewlineIndent = Changes[i].Tok->IndentLevel;
-        auto NewlineIndent = std::max(LastNewlineIndent, NewNewlineIndent);
+        auto NewlineIndent = 0;
+        if (Style.EmptyLineIndentation ==
+            FormatStyle::EmptyLineIndentationStyle::ELI_Auto) {
+          auto LastNewlineIndent =
+              (i > 0) ? Changes[i - 1].Tok->IndentLevel : 0;
+          auto NewNewlineIndent = Changes[i].Tok->IndentLevel;
+          NewlineIndent = std::max(LastNewlineIndent, NewNewlineIndent);
+        }
         appendNewlineText(ReplacementText, C.NewlinesBefore, NewlineIndent);
       }
       // FIXME: This assert should hold if we computed the column correctly.
