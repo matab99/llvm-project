@@ -1672,7 +1672,15 @@ void WhitespaceManager::generateChanges() {
                                  C.PreviousEndOfTokenColumn,
                                  C.EscapedNewlineColumn);
       } else {
-        appendNewlineText(ReplacementText, C.NewlinesBefore);
+        auto NewlineIndent = 0;
+        if (Style.EmptyLineIndentation ==
+            FormatStyle::EmptyLineIndentationStyle::ELI_Auto) {
+          auto LastNewlineIndent =
+              (i > 0) ? Changes[i - 1].Tok->IndentLevel : 0;
+          auto NewNewlineIndent = Changes[i].Tok->IndentLevel;
+          NewlineIndent = std::max(LastNewlineIndent, NewNewlineIndent);
+        }
+        appendNewlineText(ReplacementText, C.NewlinesBefore, NewlineIndent);
       }
       // FIXME: This assert should hold if we computed the column correctly.
       // assert((int)C.StartOfTokenColumn >= C.Spaces);
@@ -1704,14 +1712,25 @@ void WhitespaceManager::storeReplacement(SourceRange Range, StringRef Text) {
   }
 }
 
-void WhitespaceManager::appendNewlineText(std::string &Text,
-                                          unsigned Newlines) {
-  if (UseCRLF) {
-    Text.reserve(Text.size() + 2 * Newlines);
-    for (unsigned i = 0; i < Newlines; ++i)
-      Text.append("\r\n");
-  } else {
-    Text.append(Newlines, '\n');
+void WhitespaceManager::appendNewlineText(std::string &Text, unsigned Newlines,
+                                          unsigned NewlineIndent) {
+  if (Newlines == 0)
+    return;
+
+  auto Newline = std::string(UseCRLF ? "\r\n" : "\n");
+  auto Indent = std::string();
+  if (NewlineIndent > 0 && Newlines > 1) {
+    appendIndentText(Indent, NewlineIndent, NewlineIndent * Style.IndentWidth,
+                     0, false);
+  }
+
+  Text.reserve(Text.size() + Newlines * (Newline.size()) +
+               (Newlines - 1) * Indent.size());
+
+  for (unsigned int i = 0; i < Newlines; ++i) {
+    Text.append(Newline);
+    if (i + 1 < Newlines)
+      Text.append(Indent);
   }
 }
 

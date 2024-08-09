@@ -318,6 +318,15 @@ struct ScalarEnumerationTraits<FormatStyle::EscapedNewlineAlignmentStyle> {
 };
 
 template <>
+struct ScalarEnumerationTraits<FormatStyle::EmptyLineIndentationStyle> {
+  static void enumeration(IO &IO,
+                          FormatStyle::EmptyLineIndentationStyle &Value) {
+    IO.enumCase(Value, "Never", FormatStyle::ELI_Never);
+    IO.enumCase(Value, "Auto", FormatStyle::ELI_Auto);
+  }
+};
+
+template <>
 struct ScalarEnumerationTraits<FormatStyle::EmptyLineAfterAccessModifierStyle> {
   static void
   enumeration(IO &IO, FormatStyle::EmptyLineAfterAccessModifierStyle &Value) {
@@ -985,6 +994,7 @@ template <> struct MappingTraits<FormatStyle> {
     IO.mapOptional("Cpp11BracedListStyle", Style.Cpp11BracedListStyle);
     IO.mapOptional("DerivePointerAlignment", Style.DerivePointerAlignment);
     IO.mapOptional("DisableFormat", Style.DisableFormat);
+    IO.mapOptional("EmptyLineIndentation", Style.EmptyLineIndentation);
     IO.mapOptional("EmptyLineAfterAccessModifier",
                    Style.EmptyLineAfterAccessModifier);
     IO.mapOptional("EmptyLineBeforeAccessModifier",
@@ -1493,6 +1503,7 @@ FormatStyle getLLVMStyle(FormatStyle::LanguageKind Language) {
   LLVMStyle.Cpp11BracedListStyle = true;
   LLVMStyle.DerivePointerAlignment = false;
   LLVMStyle.DisableFormat = false;
+  LLVMStyle.EmptyLineIndentation = FormatStyle::ELI_Never;
   LLVMStyle.EmptyLineAfterAccessModifier = FormatStyle::ELAAMS_Never;
   LLVMStyle.EmptyLineBeforeAccessModifier = FormatStyle::ELBAMS_LogicalBlock;
   LLVMStyle.ExperimentalAutoDetectBinPacking = false;
@@ -4082,6 +4093,7 @@ Expected<FormatStyle> getStyle(StringRef StyleName, StringRef FileName,
   llvm::SmallVector<char> UserConfigDirectory;
   if (llvm::sys::path::user_config_directory(UserConfigDirectory)) {
     llvm::sys::path::append(UserConfigDirectory, "clangd");
+    UserConfigDirectory.push_back('\0');
     DirsToLookFor.push_back(StringRef(UserConfigDirectory.data()));
   }
 
