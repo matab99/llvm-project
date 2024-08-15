@@ -2624,6 +2624,71 @@ struct FormatStyle {
   /// \version 12
   EmptyLineBeforeAccessModifierStyle EmptyLineBeforeAccessModifier;
 
+  enum EmptyLineIndentationStyle : int8_t {
+    /// Do not append any indentation on empty lines.
+    ELI_Never,
+
+    /// Always append indentation to empty lines. Indentation of such lines
+    /// aims to align them with indentation level of surrounding lines.
+    /// Generally this is equivalent to the block level of a preceding non-empty
+    /// line. However, additional style options which affect line indentation
+    /// (such as Whitesmiths brace format) are taken into account to correctly
+    /// align empty lines. Indentation level of preprocessing directive lines
+    /// is not factored into calculation of empty line indentations. Preprocessing
+    /// directives are treated in a transparent way i.e. empty line indentation
+    /// is propagated through them. Example below shows resulting empty line
+    /// indentation with '.' characters representing empty spaces:
+    /// \code
+    ///   #ifdef PP_VAR
+    ///   ..#if 1
+    ///
+    ///   int global = 0;
+    ///
+    ///   ..#endif
+    ///   #endif
+    ///
+    ///   class foo {
+    ///   ..
+    ///   ..class bar {
+    ///   ....int method(int c) {
+    ///   ......
+    ///   #ifdef PP_VAR
+    ///   ......
+    ///   ......int x = 1;
+    ///   #else
+    ///   ......
+    ///   ......int x = c;
+    ///   ......
+    ///   #endif
+    ///   ......
+    ///   ......return c + x;
+    ///   ....}
+    ///   ..};
+    ///   ..
+    ///   private:
+    ///   ..bool baz(int x) {
+    ///   ....
+    ///   ....int y = 1;
+    ///   .....
+    ///   ....auto f = [&]() {
+    ///   ......int z = true;
+    ///   ......
+    ///   ......return z && x == y;
+    ///   ....};
+    ///   ....
+    ///   ....return f();
+    ///   ..}
+    ///   };
+    /// \endcode
+    ELI_Always
+  };
+
+  /// Defines if empty lines contain any whitespace indentation.
+  /// ``EmptyLineIndentation`` configuration handles the number of
+  /// whitespace indentation appended to the start of each empty line.
+  /// \version 20
+  EmptyLineIndentationStyle EmptyLineIndentation;
+
   /// If ``true``, clang-format detects whether function calls and
   /// definitions are formatted with one parameter per line.
   ///
@@ -5089,6 +5154,7 @@ struct FormatStyle {
            DisableFormat == R.DisableFormat &&
            EmptyLineAfterAccessModifier == R.EmptyLineAfterAccessModifier &&
            EmptyLineBeforeAccessModifier == R.EmptyLineBeforeAccessModifier &&
+           EmptyLineIndentation == R.EmptyLineIndentation &&
            ExperimentalAutoDetectBinPacking ==
                R.ExperimentalAutoDetectBinPacking &&
            FixNamespaceComments == R.FixNamespaceComments &&

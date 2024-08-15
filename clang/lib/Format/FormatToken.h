@@ -297,8 +297,8 @@ class AnnotatedLine;
 /// whitespace characters preceding it.
 struct FormatToken {
   FormatToken()
-      : HasUnescapedNewline(false), IsMultiline(false), IsFirst(false),
-        MustBreakBefore(false), MustBreakBeforeFinalized(false),
+      : ChangeWhitespace(true), HasUnescapedNewline(false), IsMultiline(false),
+        IsFirst(false), MustBreakBefore(false), MustBreakBeforeFinalized(false),
         IsUnterminatedLiteral(false), CanBreakBefore(false),
         ClosesTemplateDeclaration(false), StartsBinaryExpression(false),
         EndsBinaryExpression(false), PartOfMultiVariableDeclStmt(false),
@@ -325,6 +325,9 @@ struct FormatToken {
 
   /// The range of the whitespace immediately preceding the \c Token.
   SourceRange WhitespaceRange;
+
+  /// Whether whitespace before this token should be changed.
+  unsigned ChangeWhitespace : 1;
 
   /// Whether there is at least one unescaped newline before the \c
   /// Token.
@@ -522,6 +525,10 @@ public:
 
   /// The indent level of this token. Copied from the surrounding line.
   unsigned IndentLevel = 0;
+
+  // The indent level of empty breaking lines preceding this token. Copied from
+  // the surrounding line.
+  unsigned BreakLevel = 0;
 
   /// Penalty for inserting a line break before this token.
   unsigned SplitPenalty = 0;

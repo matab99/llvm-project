@@ -48,9 +48,10 @@ class AnnotatedLine {
 public:
   AnnotatedLine(const UnwrappedLine &Line)
       : First(Line.Tokens.front().Tok), Type(LT_Other), Level(Line.Level),
-        PPLevel(Line.PPLevel),
+        BreakLevel(Line.BreakLevel), PPLevel(Line.PPLevel),
         MatchingOpeningBlockLineIndex(Line.MatchingOpeningBlockLineIndex),
         MatchingClosingBlockLineIndex(Line.MatchingClosingBlockLineIndex),
+        InPPUnreachableEnd(Line.InPPUnreachableEnd),
         InPPDirective(Line.InPPDirective),
         InPragmaDirective(Line.InPragmaDirective),
         InMacroBody(Line.InMacroBody),
@@ -169,9 +170,11 @@ public:
 
   LineType Type;
   unsigned Level;
+  unsigned BreakLevel;
   unsigned PPLevel;
   size_t MatchingOpeningBlockLineIndex;
   size_t MatchingClosingBlockLineIndex;
+  bool InPPUnreachableEnd;
   bool InPPDirective;
   bool InPragmaDirective;
   bool InMacroBody;
