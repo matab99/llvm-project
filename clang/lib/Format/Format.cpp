@@ -363,6 +363,15 @@ struct ScalarEnumerationTraits<
 };
 
 template <>
+struct ScalarEnumerationTraits<FormatStyle::EmptyLineIndentationStyle> {
+  static void enumeration(IO &IO,
+                          FormatStyle::EmptyLineIndentationStyle &Value) {
+    IO.enumCase(Value, "Never", FormatStyle::ELI_Never);
+    IO.enumCase(Value, "Always", FormatStyle::ELI_Always);
+  }
+};
+
+template <>
 struct ScalarEnumerationTraits<FormatStyle::IndentExternBlockStyle> {
   static void enumeration(IO &IO, FormatStyle::IndentExternBlockStyle &Value) {
     IO.enumCase(Value, "AfterExternBlock", FormatStyle::IEBS_AfterExternBlock);
@@ -1014,6 +1023,7 @@ template <> struct MappingTraits<FormatStyle> {
                    Style.EmptyLineAfterAccessModifier);
     IO.mapOptional("EmptyLineBeforeAccessModifier",
                    Style.EmptyLineBeforeAccessModifier);
+    IO.mapOptional("EmptyLineIndentation", Style.EmptyLineIndentation);
     IO.mapOptional("ExperimentalAutoDetectBinPacking",
                    Style.ExperimentalAutoDetectBinPacking);
     IO.mapOptional("FixNamespaceComments", Style.FixNamespaceComments);
@@ -1521,6 +1531,7 @@ FormatStyle getLLVMStyle(FormatStyle::LanguageKind Language) {
   LLVMStyle.DisableFormat = false;
   LLVMStyle.EmptyLineAfterAccessModifier = FormatStyle::ELAAMS_Never;
   LLVMStyle.EmptyLineBeforeAccessModifier = FormatStyle::ELBAMS_LogicalBlock;
+  LLVMStyle.EmptyLineIndentation = FormatStyle::ELI_Never;
   LLVMStyle.ExperimentalAutoDetectBinPacking = false;
   LLVMStyle.FixNamespaceComments = true;
   LLVMStyle.ForEachMacros.push_back("foreach");

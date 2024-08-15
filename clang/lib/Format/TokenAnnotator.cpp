@@ -4085,6 +4085,8 @@ void TokenAnnotator::calculateFormattingInformation(AnnotatedLine &Line) const {
       --IndentLevel;
     }
     Current->IndentLevel = IndentLevel;
+    Current->BreakLevel = Line.BreakLevel;
+    Current->ChangeWhitespace = !Line.InPPUnreachableEnd;
     if (Current->opensBlockOrBlockTypeList(Style))
       ++IndentLevel;
   }

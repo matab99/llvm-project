@@ -57,7 +57,7 @@ void WhitespaceManager::replaceWhitespace(FormatToken &Tok, unsigned Newlines,
   if (Tok.Finalized || (Tok.MacroCtx && Tok.MacroCtx->Role == MR_ExpandedArg))
     return;
   Tok.setDecision((Newlines > 0) ? FD_Break : FD_Continue);
-  Changes.push_back(Change(Tok, /*CreateReplacement=*/true, Tok.WhitespaceRange,
+  Changes.push_back(Change(Tok, Tok.ChangeWhitespace, Tok.WhitespaceRange,
                            Spaces, StartOfTokenColumn, Newlines, "", "",
                            IsAligned, InPPDirective && !Tok.IsFirst,
                            /*IsInsideToken=*/false));
@@ -1672,7 +1672,7 @@ void WhitespaceManager::generateChanges() {
                                  C.PreviousEndOfTokenColumn,
                                  C.EscapedNewlineColumn);
       } else {
-        appendNewlineText(ReplacementText, C.NewlinesBefore);
+        appendNewlineText(ReplacementText, C.NewlinesBefore, C.Tok->BreakLevel);
       }
       // FIXME: This assert should hold if we computed the column correctly.
       // assert((int)C.StartOfTokenColumn >= C.Spaces);
@@ -1704,14 +1704,26 @@ void WhitespaceManager::storeReplacement(SourceRange Range, StringRef Text) {
   }
 }
 
-void WhitespaceManager::appendNewlineText(std::string &Text,
-                                          unsigned Newlines) {
-  if (UseCRLF) {
-    Text.reserve(Text.size() + 2 * Newlines);
-    for (unsigned i = 0; i < Newlines; ++i)
-      Text.append("\r\n");
-  } else {
-    Text.append(Newlines, '\n');
+void WhitespaceManager::appendNewlineText(std::string &Text, unsigned Newlines,
+                                          unsigned BreakLevel) {
+  if (Newlines == 0)
+    return;
+
+  std::string NewlineText(UseCRLF ? "\r\n" : "\n");
+  std::string BreakIndentText;
+
+  if (BreakLevel > 0) {
+    appendIndentText(BreakIndentText, BreakLevel,
+                     BreakLevel * Style.IndentWidth, 0, false);
+  }
+
+  Text.reserve(Text.size() + Newlines * NewlineText.size() +
+               (Newlines - 1) * BreakIndentText.size());
+
+  for (unsigned i = 0; i < Newlines; ++i) {
+    Text.append(NewlineText);
+    if (i + 1 < Newlines)
+      Text.append(BreakIndentText);
   }
 }
 
