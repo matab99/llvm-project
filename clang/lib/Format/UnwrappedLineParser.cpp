@@ -294,6 +294,7 @@ void UnwrappedLineParser::parseFile() {
   }
   flushComments(true);
   addUnwrappedLine();
+  setBreakLevels();
 }
 
 void UnwrappedLineParser::parseCSharpGenericTypeConstraint() {
@@ -662,6 +663,62 @@ void UnwrappedLineParser::setPreviousRBraceType(TokenType Type) {
       Prev && Prev->is(tok::r_brace)) {
     Prev->setFinalizedType(Type);
   }
+}
+
+void UnwrappedLineParser::setBreakLevels() {
+  if (Style.EmptyLineIndentation == FormatStyle::ELI_Never)
+    return;
+
+  const auto UpdateLines = [this](auto &Lines, UnwrappedLine *Parent,
+                                  auto UpdateChildren) -> void {
+    UnwrappedLine *Previous = nullptr;
+    UnwrappedLine *Current = nullptr;
+    for (UnwrappedLine &Line : Lines) {
+      if (Line.InPPDirective || Line.InPragmaDirective)
+        continue;
+
+      Previous = Current;
+      Current = &Line;
+
+      if (!Previous) {
+        Current->BreakLevel = Parent ? (Parent->Level + 1) : Current->Level;
+        continue;
+      }
+
+      auto PreviousOpensBlock = Previous->MatchingClosingBlockLineIndex !=
+                                UnwrappedLine::kInvalidIndex;
+      if (PreviousOpensBlock) {
+        Current->BreakLevel = Previous->Level + 1;
+        continue;
+      }
+
+      auto PreviousClosesBlock = Previous->MatchingOpeningBlockLineIndex !=
+                                 UnwrappedLine::kInvalidIndex;
+      if (PreviousClosesBlock) {
+        Current->BreakLevel = Previous->Level;
+        if (Style.BreakBeforeBraces == FormatStyle::BS_Whitesmiths)
+          Current->BreakLevel -= 1;
+        continue;
+      }
+
+      Current->BreakLevel += (Previous->Level - Previous->UnbracedBodyLevel);
+      Current->BreakLevel += Current->UnbracedBodyLevel;
+
+      for (auto &T : Current->Tokens)
+        UpdateChildren(T.Children, Current, UpdateChildren);
+    }
+
+    unsigned PPBreakLevel = Parent ? (Parent->Level + 1) : 0;
+    for (UnwrappedLine &Line : llvm::reverse(Lines)) {
+      if (!Line.InPPDirective && !Line.InPragmaDirective) {
+        PPBreakLevel = Line.BreakLevel;
+        continue;
+      }
+      Line.BreakLevel = PPBreakLevel;
+    }
+  };
+
+  UpdateLines(Lines, nullptr, UpdateLines);
 }
 
 template <class T>
@@ -1062,6 +1119,10 @@ void UnwrappedLineParser::conditionalCompilationStart(bool Unreachable) {
 }
 
 void UnwrappedLineParser::conditionalCompilationAlternative() {
+  if (!PPStack.empty()) {
+    bool Unreachable = (PPStack.back().Kind == PPBranchKind::PP_Unreachable);
+    Line->InPPUnreachableEnd = Line->InPPDirective && Unreachable;
+  }
   if (!PPStack.empty())
     PPStack.pop_back();
   assert(PPBranchLevel < (int)PPLevelBranchIndex.size());
@@ -1083,6 +1144,10 @@ void UnwrappedLineParser::conditionalCompilationEnd() {
     --PPBranchLevel;
   if (!PPChainBranchIndex.empty())
     PPChainBranchIndex.pop();
+  if (!PPStack.empty()) {
+    bool Unreachable = (PPStack.back().Kind == PPBranchKind::PP_Unreachable);
+    Line->InPPUnreachableEnd = Line->InPPDirective && Unreachable;
+  }
   if (!PPStack.empty())
     PPStack.pop_back();
 }
