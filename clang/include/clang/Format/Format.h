@@ -2644,15 +2644,13 @@ struct FormatStyle {
     /// Do not append any indentation on empty lines.
     ELI_Never,
 
-    /// Always append indentation to empty lines. Indentation of such lines
-    /// aims to align them with indentation level of surrounding lines.
-    /// Generally this is equivalent to the block level of a preceding non-empty
-    /// line. However, additional style options which affect line indentation
-    /// (such as Whitesmiths brace format) are taken into account to correctly
-    /// align empty lines. Indentation level of preprocessing directive lines
-    /// is not factored into calculation of empty line indentations. Preprocessing
-    /// directives are treated in a transparent way i.e. empty line indentation
-    /// is propagated through them. Example below shows resulting empty line
+    /// Always append indentation to empty lines. Empty lines are aligned to the
+    /// surrounding block/nesting level while also taking into account additional
+    /// indentation modifiers related to other style options (e.g. Whitesmiths
+    /// brace styling, access modifiers indentation). Indentation of preprocessing 
+    /// directives is not factored into calculation of empty line indentations.
+    /// Such lines are treated in a transparent way i.e. empty line indentation is
+    /// simply propagated through them. Example below shows resulting empty line
     /// indentation with '.' characters representing empty spaces:
     /// \code
     ///   #ifdef PP_VAR
