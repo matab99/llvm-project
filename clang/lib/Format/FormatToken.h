@@ -297,7 +297,7 @@ class AnnotatedLine;
 /// whitespace characters preceding it.
 struct FormatToken {
   FormatToken()
-      : ChangeWhitespace(true), HasUnescapedNewline(false), IsMultiline(false),
+      : IsFrozen(false), HasUnescapedNewline(false), IsMultiline(false),
         IsFirst(false), MustBreakBefore(false), MustBreakBeforeFinalized(false),
         IsUnterminatedLiteral(false), CanBreakBefore(false),
         ClosesTemplateDeclaration(false), StartsBinaryExpression(false),
@@ -326,8 +326,10 @@ struct FormatToken {
   /// The range of the whitespace immediately preceding the \c Token.
   SourceRange WhitespaceRange;
 
-  /// Whether whitespace before this token should be changed.
-  unsigned ChangeWhitespace : 1;
+  /// Whether whitespace changes for the \c Token should be applied at the end
+  /// of a formatting run. A non-finalized frozen token behaves in the same way
+  /// as a normal \c Token and provides identical formatting information.
+  unsigned IsFrozen : 1;
 
   /// Whether there is at least one unescaped newline before the \c
   /// Token.

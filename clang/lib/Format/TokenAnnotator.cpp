@@ -4084,9 +4084,13 @@ void TokenAnnotator::calculateFormattingInformation(AnnotatedLine &Line) const {
     }
     Current->IndentLevel = IndentLevel;
     Current->BreakLevel = Line.BreakLevel;
-    Current->ChangeWhitespace = !Line.InPPUnreachableEnd;
     if (Current->opensBlockOrBlockTypeList(Style))
       ++IndentLevel;
+  }
+
+  for (auto *Current = First; Current; Current = Current->Next) {
+    bool IsPPFrozen = Line.InPPUnreachableEnd;
+    Current->IsFrozen = Current->Finalized || IsPPFrozen;
   }
 
   LLVM_DEBUG({ printDebugInfo(Line); });

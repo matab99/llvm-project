@@ -57,7 +57,7 @@ void WhitespaceManager::replaceWhitespace(FormatToken &Tok, unsigned Newlines,
   if (Tok.Finalized || (Tok.MacroCtx && Tok.MacroCtx->Role == MR_ExpandedArg))
     return;
   Tok.setDecision((Newlines > 0) ? FD_Break : FD_Continue);
-  Changes.push_back(Change(Tok, Tok.ChangeWhitespace, Tok.WhitespaceRange,
+  Changes.push_back(Change(Tok, !Tok.IsFrozen, Tok.WhitespaceRange,
                            Spaces, StartOfTokenColumn, Newlines, "", "",
                            IsAligned, InPPDirective && !Tok.IsFirst,
                            /*IsInsideToken=*/false));
