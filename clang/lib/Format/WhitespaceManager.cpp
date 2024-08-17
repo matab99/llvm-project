@@ -57,10 +57,23 @@ void WhitespaceManager::replaceWhitespace(FormatToken &Tok, unsigned Newlines,
   if (Tok.Finalized || (Tok.MacroCtx && Tok.MacroCtx->Role == MR_ExpandedArg))
     return;
   Tok.setDecision((Newlines > 0) ? FD_Break : FD_Continue);
-  Changes.push_back(Change(Tok, !Tok.IsFrozen, Tok.WhitespaceRange,
+  Changes.push_back(Change(Tok, /*CreateReplacement=*/true, Tok.WhitespaceRange,
                            Spaces, StartOfTokenColumn, Newlines, "", "",
                            IsAligned, InPPDirective && !Tok.IsFirst,
                            /*IsInsideToken=*/false));
+
+  if (Style.EmptyLineIndentation != FormatStyle::ELI_Never) {
+    // Empty line indentation level can vary depending on the content of
+    // chosen preprocessor conditional branches during a formatting run. This
+    // can lead to multiple Change objects being generated for a '#' token, each
+    // with a possibly different BreakLevel value set for that token. In effect,
+    // the resulting Replacement objects would be in collision with each other.
+    // The line below prevents whitespace replacement from being created by
+    // checking whether a Change for the '#' has already been generated in a
+    // previous formatting run.
+    bool WasChanged = (Tok.isPreprocessorConditional() && Tok.Next->Finalized);
+    Changes.back().CreateReplacement = !WasChanged;
+  }
 }
 
 void WhitespaceManager::addUntouchableToken(const FormatToken &Tok,
