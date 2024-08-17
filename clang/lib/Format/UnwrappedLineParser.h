@@ -45,9 +45,6 @@ struct UnwrappedLine {
   /// \c InMacroBody line, and 0 otherwise.
   unsigned PPLevel = 0;
 
-  /// Whether this \c UnwrappedLine is part of a preprocessor directive
-  /// which ends an unreachable conditional branch
-  bool InPPUnreachableEnd = false;
   /// Whether this \c UnwrappedLine is part of a preprocessor directive.
   bool InPPDirective = false;
   /// Whether this \c UnwrappedLine is part of a pramga directive.

@@ -297,8 +297,8 @@ class AnnotatedLine;
 /// whitespace characters preceding it.
 struct FormatToken {
   FormatToken()
-      : IsFrozen(false), HasUnescapedNewline(false), IsMultiline(false),
-        IsFirst(false), MustBreakBefore(false), MustBreakBeforeFinalized(false),
+      : HasUnescapedNewline(false), IsMultiline(false), IsFirst(false),
+        MustBreakBefore(false), MustBreakBeforeFinalized(false),
         IsUnterminatedLiteral(false), CanBreakBefore(false),
         ClosesTemplateDeclaration(false), StartsBinaryExpression(false),
         EndsBinaryExpression(false), PartOfMultiVariableDeclStmt(false),
@@ -325,11 +325,6 @@ struct FormatToken {
 
   /// The range of the whitespace immediately preceding the \c Token.
   SourceRange WhitespaceRange;
-
-  /// Whether whitespace changes for the \c Token should be applied at the end
-  /// of a formatting run. A non-finalized frozen token behaves in the same way
-  /// as a normal \c Token and provides identical formatting information.
-  unsigned IsFrozen : 1;
 
   /// Whether there is at least one unescaped newline before the \c
   /// Token.
@@ -819,6 +814,13 @@ public:
     Content = Content.trim();
     return Content.size() > 1 &&
            (Content.back() == ':' || Content.back() == '=');
+  }
+
+  bool isPreprocessorConditional() const {
+    return is(tok::hash) && !Previous && Next &&
+           Next->isOneOf(tok::pp_if, tok::pp_ifdef, tok::pp_ifndef,
+                         tok::pp_elif, tok::pp_elifdef, tok::pp_elifndef,
+                         tok::pp_else, tok::pp_endif);
   }
 
   /// Returns actual token start location without leading escaped
