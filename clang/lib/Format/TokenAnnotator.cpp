@@ -4088,11 +4088,6 @@ void TokenAnnotator::calculateFormattingInformation(AnnotatedLine &Line) const {
       ++IndentLevel;
   }
 
-  for (auto *Current = First; Current; Current = Current->Next) {
-    bool IsPPFrozen = Line.InPPUnreachableEnd;
-    Current->IsFrozen = Current->Finalized || IsPPFrozen;
-  }
-
   LLVM_DEBUG({ printDebugInfo(Line); });
 }
 

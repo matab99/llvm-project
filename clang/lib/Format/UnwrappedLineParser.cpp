@@ -47,8 +47,7 @@ void printLine(llvm::raw_ostream &OS, const UnwrappedLine &Line,
       OS << Prefix;
       NewLine = false;
     }
-    OS << I->Tok->Tok.getName() << "["
-       << "T=" << (unsigned)I->Tok->getType()
+    OS << I->Tok->Tok.getName() << "[" << "T=" << (unsigned)I->Tok->getType()
        << ", OC=" << I->Tok->OriginalColumn << ", \"" << I->Tok->TokenText
        << "\"] ";
     for (SmallVectorImpl<UnwrappedLine>::const_iterator
@@ -669,56 +668,86 @@ void UnwrappedLineParser::setBreakLevels() {
   if (Style.EmptyLineIndentation == FormatStyle::ELI_Never)
     return;
 
-  const auto UpdateLines = [this](auto &Lines, UnwrappedLine *Parent,
-                                  auto UpdateChildren) -> void {
-    UnwrappedLine *Previous = nullptr;
+  struct UnwrappedLineData {
     UnwrappedLine *Current = nullptr;
-    for (UnwrappedLine &Line : Lines) {
-      if (Line.InPPDirective || Line.InPragmaDirective)
-        continue;
-
-      Previous = Current;
-      Current = &Line;
-
-      if (!Previous) {
-        Current->BreakLevel = Parent ? (Parent->Level + 1) : Current->Level;
-        continue;
-      }
-
-      auto PreviousOpensBlock = Previous->MatchingClosingBlockLineIndex !=
-                                UnwrappedLine::kInvalidIndex;
-      if (PreviousOpensBlock) {
-        Current->BreakLevel = Previous->Level + 1;
-        continue;
-      }
-
-      auto PreviousClosesBlock = Previous->MatchingOpeningBlockLineIndex !=
-                                 UnwrappedLine::kInvalidIndex;
-      if (PreviousClosesBlock) {
-        Current->BreakLevel = Previous->Level;
-        if (Style.BreakBeforeBraces == FormatStyle::BS_Whitesmiths)
-          Current->BreakLevel -= 1;
-        continue;
-      }
-
-      Current->BreakLevel += (Previous->Level - Previous->UnbracedBodyLevel);
-      Current->BreakLevel += Current->UnbracedBodyLevel;
-
-      for (auto &T : Current->Tokens)
-        UpdateChildren(T.Children, Current, UpdateChildren);
-    }
-
-    unsigned PPBreakLevel = Parent ? (Parent->Level + 1) : 0;
-    for (UnwrappedLine &Line : llvm::reverse(Lines)) {
-      if (!Line.InPPDirective && !Line.InPragmaDirective) {
-        PPBreakLevel = Line.BreakLevel;
-        continue;
-      }
-      Line.BreakLevel = PPBreakLevel;
-    }
+    UnwrappedLine *Parent = nullptr;
   };
 
-  UpdateLines(Lines, nullptr, UpdateLines);
+  // Generic function which iterates through all lines in-order and calls a
+  // Visitor callback on each line with a Data object passed as an argument.
+  const auto TraverseLines = [&](auto Visitor) {
+    const auto VisitLines = [&](auto &Lines, auto &LineVisitor,
+                                UnwrappedLineData Data) -> void {
+      for (UnwrappedLine &Line : Lines) {
+        Data.Current = &Line;
+        Visitor(Data);
+        for (auto &T : Line.Tokens) {
+          if (!T.Children.empty()) {
+            Data.Parent = &Line;
+            LineVisitor(T.Children, LineVisitor, Data);
+          }
+        }
+      }
+    };
+
+    VisitLines(Lines, VisitLines, {});
+  };
+
+  // Update empty line indent level (break level) for all lines which are not
+  // preprocessor lines.
+  TraverseLines([&](const UnwrappedLineData &Data) {
+    UnwrappedLine &Line = *Data.Current;
+    if (!Line.InPPDirective)
+      Line.BreakLevel = Line.Level;
+  });
+
+  // Update empty line indent level (break level) for all preprocessor lines.
+  llvm::SmallVector<UnwrappedLineData> LinesInPP;
+  llvm::SmallVector<UnwrappedLineData> LinesOutPP;
+
+  TraverseLines([&](const UnwrappedLineData &Data) {
+    UnwrappedLine &Line = *Data.Current;
+    if (Line.InPPDirective)
+      LinesInPP.push_back(Data);
+    else
+      LinesOutPP.push_back(Data);
+  });
+
+  for (const auto &PPLine : llvm::reverse(LinesInPP)) {
+    const auto Location = [&](const UnwrappedLineData &Data) {
+      const auto &Line = *Data.Current;
+      const auto &Token = Line.Tokens.front().Tok;
+      return Token->Tok.getLocation();
+    };
+
+    UnwrappedLineData *Next;
+    UnwrappedLineData *Previous;
+    while (!LinesOutPP.empty()) {
+      Next = nullptr;
+      Previous = (LinesOutPP.end() - 1);
+      if (Location(*Previous) < Location(PPLine))
+        break;
+
+      Next = (LinesOutPP.end() - 1);
+      Previous = nullptr;
+      if (LinesOutPP.size() == 1)
+        break;
+
+      Next = (LinesOutPP.end() - 1);
+      Previous = (LinesOutPP.end() - 2);
+      if (Location(*Previous) < Location(PPLine))
+        break;
+
+      LinesOutPP.pop_back();
+    }
+
+    if (Next)
+      PPLine.Current->BreakLevel = Next->Current->BreakLevel;
+    else if (Previous)
+      PPLine.Current->BreakLevel = Previous->Current->Level;
+    else
+      PPLine.Current->BreakLevel = 0;
+  }
 }
 
 template <class T>
@@ -1119,10 +1148,6 @@ void UnwrappedLineParser::conditionalCompilationStart(bool Unreachable) {
 }
 
 void UnwrappedLineParser::conditionalCompilationAlternative() {
-  if (!PPStack.empty()) {
-    bool Unreachable = (PPStack.back().Kind == PPBranchKind::PP_Unreachable);
-    Line->InPPUnreachableEnd = Line->InPPDirective && Unreachable;
-  }
   if (!PPStack.empty())
     PPStack.pop_back();
   assert(PPBranchLevel < (int)PPLevelBranchIndex.size());
@@ -1144,10 +1169,6 @@ void UnwrappedLineParser::conditionalCompilationEnd() {
     --PPBranchLevel;
   if (!PPChainBranchIndex.empty())
     PPChainBranchIndex.pop();
-  if (!PPStack.empty()) {
-    bool Unreachable = (PPStack.back().Kind == PPBranchKind::PP_Unreachable);
-    Line->InPPUnreachableEnd = Line->InPPDirective && Unreachable;
-  }
   if (!PPStack.empty())
     PPStack.pop_back();
 }

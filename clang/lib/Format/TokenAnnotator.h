@@ -51,7 +51,6 @@ public:
         BreakLevel(Line.BreakLevel), PPLevel(Line.PPLevel),
         MatchingOpeningBlockLineIndex(Line.MatchingOpeningBlockLineIndex),
         MatchingClosingBlockLineIndex(Line.MatchingClosingBlockLineIndex),
-        InPPUnreachableEnd(Line.InPPUnreachableEnd),
         InPPDirective(Line.InPPDirective),
         InPragmaDirective(Line.InPragmaDirective),
         InMacroBody(Line.InMacroBody),
@@ -174,7 +173,6 @@ public:
   unsigned PPLevel;
   size_t MatchingOpeningBlockLineIndex;
   size_t MatchingClosingBlockLineIndex;
-  bool InPPUnreachableEnd;
   bool InPPDirective;
   bool InPragmaDirective;
   bool InMacroBody;

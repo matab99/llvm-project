@@ -27898,6 +27898,93 @@ TEST_F(FormatTest, BreakBinaryOperations) {
                Style);
 }
 
+TEST_F(FormatTest, EmptyLineIndentation) {
+  auto Style = getLLVMStyleWithColumns(60);
+  EXPECT_EQ(Style.EmptyLineIndentation, FormatStyle::ELI_Never);
+
+  Style.EmptyLineIndentation = FormatStyle::ELI_Always;
+  Style.EmptyLineAfterAccessModifier = FormatStyle::ELAAMS_Leave;
+  Style.EmptyLineBeforeAccessModifier = FormatStyle::ELBAMS_Leave;
+  Style.IndentPPDirectives = FormatStyle::PPDIS_BeforeHash;
+  Style.SeparateDefinitionBlocks = FormatStyle::SDS_Leave;
+  Style.KeepEmptyLines.AtStartOfBlock = true;
+  Style.MaxEmptyLinesToKeep = 2;
+  verifyNoChange("class A {\n"
+                 "  // Some class comment\n"
+                 "  // which could\n"
+                 "  // span multiple lines\n"
+                 "  \n"
+                 "  using type = std::is_constructible<void>;\n"
+                 "  \n"
+                 "public:\n"
+                 "  \n"
+                 "  \n"
+                 "  int foo(int arg) {\n"
+                 "    int x = 199;\n"
+                 "    \n"
+                 "    return arg + x + arg;\n"
+                 "  }\n"
+                 "  \n"
+                 "  static void bar() {}\n"
+                 "  \n"
+                 "  \n"
+                 "private:\n"
+                 "  \n"
+                 "  class B {\n"
+                 "    class C {\n"
+                 "      class D {\n"
+                 "        // Some really nested comment\n"
+                 "        \n"
+                 "        \n"
+                 "        void method1() {\n"
+                 "          // Some method comment\n"
+                 "          \n"
+                 "#include <some/random/header.hpp>\n"
+                 "          \n"
+                 "          auto f1 = [this]() {\n"
+                 "            auto f2 = [&]() {\n"
+                 "              auto f3 = [=]() {\n"
+                 "                /* Some extremely nested multiline comment\n"
+                 "                   Some extremely nested multiline comment\n"
+                 "                   Some extremely nested multiline comment\n"
+                 "                 */\n"
+                 "                \n"
+                 "                int a = 0;\n"
+                 "                \n"
+                 "#define SOME_PP_VAR 1\n"
+                 "                \n"
+                 "#ifdef SOME_PP_VAR\n"
+                 "                \n"
+                 "                a = 1;\n"
+                 "#elif\n"
+                 "                \n"
+                 "  #if 1\n"
+                 "                \n"
+                 "                a = 2;\n"
+                 "                \n"
+                 "  #endif\n"
+                 "                \n"
+                 "#endif\n"
+                 "                \n"
+                 "                // Some extremely incredibly nested comment\n"
+                 "              };\n"
+                 "              \n"
+                 "              \n"
+                 "              int z = 1;\n"
+                 "            };\n"
+                 "            \n"
+                 "            int w = 1;\n"
+                 "          };\n"
+                 "          \n"
+                 "          int v = 1;\n"
+                 "        };\n"
+                 "      };\n"
+                 "    };\n"
+                 "  };\n"
+                 "};\n",
+                 Style);
+}
+
 } // namespace
 } // namespace test
 } // namespace format
