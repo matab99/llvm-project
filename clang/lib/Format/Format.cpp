@@ -1005,7 +1005,6 @@ template <> struct MappingTraits<FormatStyle> {
     IO.mapOptional("Cpp11BracedListStyle", Style.Cpp11BracedListStyle);
     IO.mapOptional("DerivePointerAlignment", Style.DerivePointerAlignment);
     IO.mapOptional("DisableFormat", Style.DisableFormat);
-    IO.mapOptional("EmptyLineIndentation", Style.EmptyLineIndentation);
     IO.mapOptional("EmptyLineAfterAccessModifier",
                    Style.EmptyLineAfterAccessModifier);
     IO.mapOptional("EmptyLineBeforeAccessModifier",
@@ -1516,7 +1515,6 @@ FormatStyle getLLVMStyle(FormatStyle::LanguageKind Language) {
   LLVMStyle.Cpp11BracedListStyle = true;
   LLVMStyle.DerivePointerAlignment = false;
   LLVMStyle.DisableFormat = false;
-  LLVMStyle.EmptyLineIndentation = FormatStyle::ELI_Never;
   LLVMStyle.EmptyLineAfterAccessModifier = FormatStyle::ELAAMS_Never;
   LLVMStyle.EmptyLineBeforeAccessModifier = FormatStyle::ELBAMS_LogicalBlock;
   LLVMStyle.EmptyLineIndentation = FormatStyle::ELI_Never;
