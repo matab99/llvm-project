@@ -1014,8 +1014,7 @@ private:
     // The case next is colon, it is not a operator of identifier.
     if (!Tok.Next || Tok.Next->is(tok::colon))
       return false;
-    return std::find(Opes.begin(), Opes.end(), Tok.TokenText.str()) !=
-           Opes.end();
+    return llvm::is_contained(Opes, Tok.TokenText.str());
   }
 
   // SimpleValue6 ::=  "(" DagArg [DagArgList] ")"
@@ -2874,9 +2873,18 @@ private:
       return false;
 
     // Search for unexpected tokens.
-    for (auto *Prev = BeforeRParen; Prev != LParen; Prev = Prev->Previous)
+    for (auto *Prev = BeforeRParen; Prev != LParen; Prev = Prev->Previous) {
+      if (Prev->is(tok::r_paren)) {
+        Prev = Prev->MatchingParen;
+        if (!Prev)
+          return false;
+        if (Prev->is(TT_FunctionTypeLParen))
+          break;
+        continue;
+      }
       if (!Prev->isOneOf(tok::kw_const, tok::identifier, tok::coloncolon))
         return false;
+    }
 
     return true;
   }
@@ -3167,6 +3175,15 @@ public:
       parse(Precedence + 1);
 
       int CurrentPrecedence = getCurrentPrecedence();
+      if (Style.BreakBinaryOperations == FormatStyle::BBO_OnePerLine &&
+          CurrentPrecedence > prec::Conditional &&
+          CurrentPrecedence < prec::PointerToMember) {
+        // When BreakBinaryOperations is set to BreakAll,
+        // all operations will be on the same line or on individual lines.
+        // Override precedence to avoid adding fake parenthesis which could
+        // group operations of a different precedence level on the same line
+        CurrentPrecedence = prec::Additive;
+      }
 
       if (Precedence == CurrentPrecedence && Current &&
           Current->is(TT_SelectorName)) {
@@ -3541,6 +3558,82 @@ void TokenAnnotator::setCommentLineLevels(
     }
 
     setCommentLineLevels(Line->Children);
+  }
+}
+
+void TokenAnnotator::setEmptyLineLevels(
+    SmallVectorImpl<AnnotatedLine *> &Lines) const {
+  if (Style.EmptyLineIndentation == FormatStyle::ELI_Never)
+    return;
+
+  // Generic function which iterates through all lines in-order and calls a
+  // Visitor callback on each line with an AnnotatedLine reference.
+  const auto TraverseLines = [&](auto Visitor) {
+    const auto VisitLines = [&](auto &Lines, auto &LineVisitor) -> void {
+      for (AnnotatedLine *Line : Lines) {
+        Visitor(*Line);
+        for (auto *Current = Line->First; Current; Current = Current->Next)
+          if (!Current->Children.empty())
+            LineVisitor(Current->Children, LineVisitor);
+      }
+    };
+
+    VisitLines(Lines, VisitLines);
+  };
+
+  // Update empty line indent level (break level) for all tokens which are not
+  // in preprocessor lines.
+  TraverseLines([&](AnnotatedLine &Line) {
+    if (Line.InPPDirective)
+      return;
+
+    for (auto *Current = Line.First; Current; Current = Current->Next) {
+      Current->BreakLevel = Current->IndentLevel;
+
+      bool IsClosingBrace = Current->is(tok::r_brace);
+      bool Indented = (Style.BreakBeforeBraces == FormatStyle::BS_Whitesmiths);
+      bool ClosesBlock = Current->closesBlockOrBlockTypeList(Style);
+      bool MatchingLine =
+          (Line.MatchingOpeningBlockLineIndex != UnwrappedLine::kInvalidIndex);
+
+      if (IsClosingBrace && !Indented && (ClosesBlock || MatchingLine))
+        Current->BreakLevel += 1;
+    }
+  });
+
+  // Update empty line indent level (break level) for all tokens which are in
+  // preprocessor lines.
+  llvm::SmallVector<FormatToken *> TokensInPP;
+  llvm::SmallVector<FormatToken *> TokensOutPP;
+
+  TraverseLines([&](AnnotatedLine &Line) {
+    if (!Line.First || Line.First->is(tok::eof))
+      return;
+
+    auto &Output = Line.InPPDirective ? TokensInPP : TokensOutPP;
+    for (auto *Current = Line.First; Current; Current = Current->Next)
+      Output.push_back(Current);
+  });
+
+  const auto Loc = [](const FormatToken *T) { return T->Tok.getLocation(); };
+  llvm::sort(TokensInPP, [&](auto x, auto y) { return Loc(x) < Loc(y); });
+  llvm::sort(TokensOutPP, [&](auto x, auto y) { return Loc(x) < Loc(y); });
+
+  for (auto &TokInPP : llvm::reverse(TokensInPP)) {
+    while (TokensOutPP.size() > 1) {
+      const auto &PrevOutPP = *(TokensOutPP.end() - 2);
+      if (Loc(TokInPP) < Loc(PrevOutPP))
+        TokensOutPP.pop_back();
+      else
+        break;
+    }
+
+    TokInPP->BreakLevel = 0;
+    if (!TokensOutPP.empty()) {
+      const auto &NextOutPP = *(TokensOutPP.end() - 1);
+      if (Loc(TokInPP) < Loc(NextOutPP))
+        TokInPP->BreakLevel = (NextOutPP)->BreakLevel;
+    }
   }
 }
 

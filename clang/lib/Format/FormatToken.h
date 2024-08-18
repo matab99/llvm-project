@@ -523,6 +523,10 @@ public:
   /// The indent level of this token. Copied from the surrounding line.
   unsigned IndentLevel = 0;
 
+  // The indent level of empty breaking lines preceding this token. Copied from
+  // the surrounding line.
+  unsigned BreakLevel = 0;
+
   /// Penalty for inserting a line break before this token.
   unsigned SplitPenalty = 0;
 
@@ -810,6 +814,13 @@ public:
     Content = Content.trim();
     return Content.size() > 1 &&
            (Content.back() == ':' || Content.back() == '=');
+  }
+
+  bool isPreprocessorConditional() const {
+    return is(tok::hash) && !Previous && Next &&
+           Next->isOneOf(tok::pp_if, tok::pp_ifdef, tok::pp_ifndef,
+                         tok::pp_elif, tok::pp_elifdef, tok::pp_elifndef,
+                         tok::pp_else, tok::pp_endif);
   }
 
   /// Returns actual token start location without leading escaped

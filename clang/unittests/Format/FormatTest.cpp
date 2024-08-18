@@ -27659,6 +27659,610 @@ TEST_F(FormatTest, SpaceBetweenKeywordAndLiteral) {
   verifyFormat("return sizeof \"5\";");
 }
 
+TEST_F(FormatTest, BreakBinaryOperations) {
+  auto Style = getLLVMStyleWithColumns(60);
+  EXPECT_EQ(Style.BreakBinaryOperations, FormatStyle::BBO_Never);
+
+  // Logical operations
+  verifyFormat("if (condition1 && condition2) {\n"
+               "}",
+               Style);
+
+  verifyFormat("if (condition1 && condition2 &&\n"
+               "    (condition3 || condition4) && condition5 &&\n"
+               "    condition6) {\n"
+               "}",
+               Style);
+
+  verifyFormat("if (loooooooooooooooooooooongcondition1 &&\n"
+               "    loooooooooooooooooooooongcondition2) {\n"
+               "}",
+               Style);
+
+  // Arithmetic
+  verifyFormat("const int result = lhs + rhs;", Style);
+
+  verifyFormat("const int result = loooooooongop1 + looooooooongop2 +\n"
+               "                   loooooooooooooooooooooongop3;",
+               Style);
+
+  verifyFormat("result = longOperand1 + longOperand2 -\n"
+               "         (longOperand3 + longOperand4) -\n"
+               "         longOperand5 * longOperand6;",
+               Style);
+
+  verifyFormat("const int result =\n"
+               "    operand1 + operand2 - (operand3 + operand4);",
+               Style);
+
+  Style.BreakBinaryOperations = FormatStyle::BBO_OnePerLine;
+
+  // Logical operations
+  verifyFormat("if (condition1 && condition2) {\n"
+               "}",
+               Style);
+
+  verifyFormat("if (condition1 && // comment\n"
+               "    condition2 &&\n"
+               "    (condition3 || condition4) && // comment\n"
+               "    condition5 &&\n"
+               "    condition6) {\n"
+               "}",
+               Style);
+
+  verifyFormat("if (loooooooooooooooooooooongcondition1 &&\n"
+               "    loooooooooooooooooooooongcondition2) {\n"
+               "}",
+               Style);
+
+  // Arithmetic
+  verifyFormat("const int result = lhs + rhs;", Style);
+
+  verifyFormat("result = loooooooooooooooooooooongop1 +\n"
+               "         loooooooooooooooooooooongop2 +\n"
+               "         loooooooooooooooooooooongop3;",
+               Style);
+
+  verifyFormat("const int result =\n"
+               "    operand1 + operand2 - (operand3 + operand4);",
+               Style);
+
+  verifyFormat("result = longOperand1 +\n"
+               "         longOperand2 -\n"
+               "         (longOperand3 + longOperand4) -\n"
+               "         longOperand5 +\n"
+               "         longOperand6;",
+               Style);
+
+  verifyFormat("result = operand1 +\n"
+               "         operand2 -\n"
+               "         operand3 +\n"
+               "         operand4 -\n"
+               "         operand5 +\n"
+               "         operand6;",
+               Style);
+
+  // Ensure mixed precedence operations are handled properly
+  verifyFormat("result = op1 + op2 * op3 - op4;", Style);
+
+  verifyFormat("result = operand1 +\n"
+               "         operand2 /\n"
+               "         operand3 +\n"
+               "         operand4 /\n"
+               "         operand5 *\n"
+               "         operand6;",
+               Style);
+
+  verifyFormat("result = operand1 *\n"
+               "         operand2 -\n"
+               "         operand3 *\n"
+               "         operand4 -\n"
+               "         operand5 +\n"
+               "         operand6;",
+               Style);
+
+  verifyFormat("result = operand1 *\n"
+               "         (operand2 - operand3 * operand4) -\n"
+               "         operand5 +\n"
+               "         operand6;",
+               Style);
+
+  verifyFormat("result = operand1.member *\n"
+               "         (operand2.member() - operand3->mem * operand4) -\n"
+               "         operand5.member() +\n"
+               "         operand6->member;",
+               Style);
+
+  Style.BreakBinaryOperations = FormatStyle::BBO_RespectPrecedence;
+  verifyFormat("result = op1 + op2 * op3 - op4;", Style);
+
+  verifyFormat("result = operand1 +\n"
+               "         operand2 / operand3 +\n"
+               "         operand4 / operand5 * operand6;",
+               Style);
+
+  verifyFormat("result = operand1 * operand2 -\n"
+               "         operand3 * operand4 -\n"
+               "         operand5 +\n"
+               "         operand6;",
+               Style);
+
+  verifyFormat("result = operand1 * (operand2 - operand3 * operand4) -\n"
+               "         operand5 +\n"
+               "         operand6;",
+               Style);
+
+  verifyFormat("std::uint32_t a = byte_buffer[0] |\n"
+               "                  byte_buffer[1] << 8 |\n"
+               "                  byte_buffer[2] << 16 |\n"
+               "                  byte_buffer[3] << 24;",
+               Style);
+
+  Style.BreakBinaryOperations = FormatStyle::BBO_OnePerLine;
+  Style.BreakBeforeBinaryOperators = FormatStyle::BOS_NonAssignment;
+
+  // Logical operations
+  verifyFormat("if (condition1 && condition2) {\n"
+               "}",
+               Style);
+
+  verifyFormat("if (loooooooooooooooooooooongcondition1\n"
+               "    && loooooooooooooooooooooongcondition2) {\n"
+               "}",
+               Style);
+
+  // Arithmetic
+  verifyFormat("const int result = lhs + rhs;", Style);
+
+  verifyFormat("result = loooooooooooooooooooooongop1\n"
+               "         + loooooooooooooooooooooongop2\n"
+               "         + loooooooooooooooooooooongop3;",
+               Style);
+
+  verifyFormat("const int result =\n"
+               "    operand1 + operand2 - (operand3 + operand4);",
+               Style);
+
+  verifyFormat("result = longOperand1\n"
+               "         + longOperand2\n"
+               "         - (longOperand3 + longOperand4)\n"
+               "         - longOperand5\n"
+               "         + longOperand6;",
+               Style);
+
+  verifyFormat("result = operand1\n"
+               "         + operand2\n"
+               "         - operand3\n"
+               "         + operand4\n"
+               "         - operand5\n"
+               "         + operand6;",
+               Style);
+
+  // Ensure mixed precedence operations are handled properly
+  verifyFormat("result = op1 + op2 * op3 - op4;", Style);
+
+  verifyFormat("result = operand1\n"
+               "         + operand2\n"
+               "         / operand3\n"
+               "         + operand4\n"
+               "         / operand5\n"
+               "         * operand6;",
+               Style);
+
+  verifyFormat("result = operand1\n"
+               "         * operand2\n"
+               "         - operand3\n"
+               "         * operand4\n"
+               "         - operand5\n"
+               "         + operand6;",
+               Style);
+
+  verifyFormat("result = operand1\n"
+               "         * (operand2 - operand3 * operand4)\n"
+               "         - operand5\n"
+               "         + operand6;",
+               Style);
+
+  verifyFormat("std::uint32_t a = byte_buffer[0]\n"
+               "                  | byte_buffer[1]\n"
+               "                  << 8\n"
+               "                  | byte_buffer[2]\n"
+               "                  << 16\n"
+               "                  | byte_buffer[3]\n"
+               "                  << 24;",
+               Style);
+
+  Style.BreakBinaryOperations = FormatStyle::BBO_RespectPrecedence;
+  verifyFormat("result = op1 + op2 * op3 - op4;", Style);
+
+  verifyFormat("result = operand1\n"
+               "         + operand2 / operand3\n"
+               "         + operand4 / operand5 * operand6;",
+               Style);
+
+  verifyFormat("result = operand1 * operand2\n"
+               "         - operand3 * operand4\n"
+               "         - operand5\n"
+               "         + operand6;",
+               Style);
+
+  verifyFormat("result = operand1 * (operand2 - operand3 * operand4)\n"
+               "         - operand5\n"
+               "         + operand6;",
+               Style);
+
+  verifyFormat("std::uint32_t a = byte_buffer[0]\n"
+               "                  | byte_buffer[1] << 8\n"
+               "                  | byte_buffer[2] << 16\n"
+               "                  | byte_buffer[3] << 24;",
+               Style);
+}
+
+TEST_F(FormatTest, EmptyLineIndentation) {
+  EXPECT_EQ(getLLVMStyle().EmptyLineIndentation, FormatStyle::ELI_Never);
+
+  auto Style = getLLVMStyle();
+  Style.EmptyLineIndentation = FormatStyle::ELI_Always;
+
+  verifyFormat("int SIMPLE_FUNCTION() {\n"
+               "  \n"
+               "  int x = 1;\n"
+               "  \n"
+               "  int y = 2;\n"
+               "  \n"
+               "  return x + y\n"
+               "}",
+               "int SIMPLE_FUNCTION() {\n"
+               "\n"
+               "  int x = 1;\n"
+               "\n"
+               "  int y = 2;\n"
+               "\n"
+               "  return x + y\n"
+               "}",
+               Style);
+
+  verifyFormat("class SIMPLE_CLASS {\n"
+               "public:\n"
+               "  int var = 0;\n"
+               "  \n"
+               "  static void foo() {}\n"
+               "  \n"
+               "private:\n"
+               "  int bar() { return var; }\n"
+               "};\n",
+               "class SIMPLE_CLASS {\n"
+               "public:\n"
+               "  int var = 0;\n"
+               "\n"
+               "  static void foo() {}\n"
+               "\n"
+               "private:\n"
+               "  int bar() { return var; }\n"
+               "};\n",
+               Style);
+
+  verifyFormat("void SIMPLE_CHILD_BLOCK() {\n"
+               "  int x = 0;\n"
+               "  \n"
+               "  auto func = []() {\n"
+               "    int y = 0;\n"
+               "    \n"
+               "    return y + 1;\n"
+               "  };\n"
+               "}\n",
+               "void SIMPLE_CHILD_BLOCK() {\n"
+               "  int x = 0;\n"
+               "\n"
+               "  auto func = []() {\n"
+               "    int y = 0;\n"
+               "\n"
+               "    return y + 1;\n"
+               "  };\n"
+               "}\n",
+               Style);
+
+  verifyFormat("void SIMPLE_PREPROCESSOR_DIRECTIVES() {\n"
+               "  \n"
+               "#include <some/random/header.h>\n"
+               "  \n"
+               "#define SOME_VAR 1\n"
+               "  \n"
+               "#ifdef SOME_OTHER_VAR\n"
+               "  \n"
+               "  int x = 0;\n"
+               "  \n"
+               "#else\n"
+               "  \n"
+               "  int y = 0;\n"
+               "  \n"
+               "#endif\n"
+               "}",
+               "void SIMPLE_PREPROCESSOR_DIRECTIVES() {\n"
+               "\n"
+               "#include <some/random/header.h>\n"
+               "\n"
+               "#define SOME_VAR 1\n"
+               "\n"
+               "#ifdef SOME_OTHER_VAR\n"
+               "\n"
+               "  int x = 0;\n"
+               "\n"
+               "#else\n"
+               "\n"
+               "  int y = 0;\n"
+               "\n"
+               "#endif\n"
+               "}",
+               Style);
+
+  verifyFormat("void CHILD_EDGE_PREPROCESSOR_DIRECTIVES() {\n"
+               "  auto f1 = []() {\n"
+               "    int x1 = 0;\n"
+               "    \n"
+               "    auto f2 = []() {\n"
+               "      int x2 = 0;\n"
+               "      \n"
+               "      auto f3 = []() {\n"
+               "        int x3 = 0;\n"
+               "        \n"
+               "#define VAR3 3\n"
+               "      };\n"
+               "      \n"
+               "#define VAR2 2\n"
+               "    };\n"
+               "    \n"
+               "#define VAR1 1\n"
+               "  };\n"
+               "  \n"
+               "#define VAR0 0\n"
+               "}\n",
+               "void CHILD_EDGE_PREPROCESSOR_DIRECTIVES() {\n"
+               "  auto f1 = []() {\n"
+               "    int x1 = 0;\n"
+               "\n"
+               "    auto f2 = []() {\n"
+               "      int x2 = 0;\n"
+               "\n"
+               "      auto f3 = []() {\n"
+               "        int x3 = 0;\n"
+               "\n"
+               "#define VAR3 3\n"
+               "      };\n"
+               "\n"
+               "#define VAR2 2\n"
+               "    };\n"
+               "\n"
+               "#define VAR1 1\n"
+               "  };\n"
+               "\n"
+               "#define VAR0 0\n"
+               "}\n",
+               Style);
+
+  // Note that indentation level of the empty line immediately after "if (a)"
+  // statement is not obvious. If the first preprocessor conditional branch is
+  // chosen indentation could be aligned to the "x = 0;" statement which has an
+  // additional unbraced indentation level. If the second branch is chosen then
+  // this empty line should be aligned to the opening '{' brace which as a lower
+  // indentation level. As a result, conflicting empty line indentation levels
+  // (BreakLevel) would be generated. In order to prevent that the '#' symbols
+  // can have their whitespace changed only once during the first formatting
+  // run. An indentation of 4 is chosen since the preprocessor branch "#ifdef
+  // SOME_VAR" is selected during the first formatting run. As a result the
+  // indentation level of "x = 0;" statement is applied to empty lines above it.
+  verifyFormat("void PREPROCESSOR_CONDITIONAL_BRANCHING() {\n"
+               "  int x = 1;\n"
+               "  \n"
+               "  if (x)\n"
+               "    \n"
+               "#ifdef SOME_VAR\n"
+               "    \n"
+               "    x = 0;\n"
+               "  \n"
+               "#else\n"
+               "  \n"
+               "  {\n"
+               "    int a = 3;\n"
+               "    x = a;\n"
+               "  }\n"
+               "  \n"
+               "#endif\n"
+               "}",
+               "void PREPROCESSOR_CONDITIONAL_BRANCHING() {\n"
+               "  int x = 1;\n"
+               "\n"
+               "  if (x)\n"
+               "\n"
+               "#ifdef SOME_VAR\n"
+               "\n"
+               "    x = 0;\n"
+               "\n"
+               "#else\n"
+               "\n"
+               "  {\n"
+               "    int a = 3;\n"
+               "    x = a;\n"
+               "  }\n"
+               "\n"
+               "#endif\n"
+               "}",
+               Style);
+
+  Style = getLLVMStyle();
+  Style.EmptyLineIndentation = FormatStyle::ELI_Always;
+  Style.IndentWidth = 4;
+  Style.TabWidth = 4;
+  Style.IndentAccessModifiers = true;
+  Style.UseTab = FormatStyle::UT_Always;
+
+  verifyFormat("class TABBED_WITH_INDENTED_ACCESS_MODIFIERS {\n"
+               "\t\tstatic int data = 0;\n"
+               "\t\t\n"
+               "\tprivate:\n"
+               "\t\tstatic bool flag = false;\n"
+               "\t\t\n"
+               "\tpublic:\n"
+               "\t\tstatic int foo() {\n"
+               "\t\t\tint x = 1;\n"
+               "\t\t\t\n"
+               "\t\t\treturn data + x;\n"
+               "\t\t}\n"
+               "\t\t\n"
+               "\t\tint var = 0;\n"
+               "};",
+               "class TABBED_WITH_INDENTED_ACCESS_MODIFIERS {\n"
+               "\t\tstatic int data = 0;\n"
+               "\n"
+               "\tprivate:\n"
+               "\t\tstatic bool flag = false;\n"
+               "\n"
+               "\tpublic:\n"
+               "\t\tstatic int foo() {\n"
+               "\t\t\tint x = 1;\n"
+               "\n"
+               "\t\t\treturn data + x;\n"
+               "\t\t}\n"
+               "\n"
+               "\t\tint var = 0;\n"
+               "};",
+               Style);
+
+  Style = getLLVMStyle();
+  Style.EmptyLineIndentation = FormatStyle::ELI_Always;
+  Style.IndentWidth = 8;
+  Style.TabWidth = 4;
+  Style.AccessModifierOffset = -4;
+  Style.UseTab = FormatStyle::UT_Always;
+  Style.BreakBeforeBraces = FormatStyle::BS_Whitesmiths;
+
+  verifyFormat("class WHITESMITHS_WITH_LONG_TABS_AND_DIRECTIVES\n"
+               "\t\t{\n"
+               "\tpublic:\n"
+               "\t\tusing type = std::byte;\n"
+               "\t\t\n"
+               "\tpublic:\n"
+               "\t\tstatic type getByte()\n"
+               "\t\t\t\t{\n"
+               "\t\t\t\t\n"
+               "#define SOME_VALUE 0x1F\n"
+               "\t\t\t\t\n"
+               "\t\t\t\tstd::byte b = SOME_VALUE;\n"
+               "\t\t\t\t\n"
+               "\t\t\t\treturn b;\n"
+               "\t\t\t\t\n"
+               "#undef SOME_VAR\n"
+               "\t\t\t\t}\n"
+               "\t\t\n"
+               "\t\tint var = 2;\n"
+               "\t\t};",
+               "class WHITESMITHS_WITH_LONG_TABS_AND_DIRECTIVES\n"
+               "\t\t{\n"
+               "\tpublic:\n"
+               "\t\tusing type = std::byte;\n"
+               "\n"
+               "\tpublic:\n"
+               "\t\tstatic type getByte()\n"
+               "\t\t\t\t{\n"
+               "\n"
+               "#define SOME_VALUE 0x1F\n"
+               "\n"
+               "\t\t\t\tstd::byte b = SOME_VALUE;\n"
+               "\n"
+               "\t\t\t\treturn b;\n"
+               "\n"
+               "#undef SOME_VAR\n"
+               "\t\t\t\t}\n"
+               "\n"
+               "\t\tint var = 2;\n"
+               "\t\t};",
+               Style);
+
+  Style = getLLVMStyleWithColumns(60);
+  Style.EmptyLineIndentation = FormatStyle::ELI_Always;
+  Style.EmptyLineAfterAccessModifier = FormatStyle::ELAAMS_Leave;
+  Style.EmptyLineBeforeAccessModifier = FormatStyle::ELBAMS_Leave;
+  Style.IndentPPDirectives = FormatStyle::PPDIS_BeforeHash;
+  Style.SeparateDefinitionBlocks = FormatStyle::SDS_Leave;
+  Style.KeepEmptyLines.AtStartOfBlock = true;
+  Style.MaxEmptyLinesToKeep = 2;
+
+  verifyNoChange("class COMPLEX_NESTED_BLOCKS_WITH_COMMENTS_AND_DIRECTIVES {\n"
+                 "  // Some class comment\n"
+                 "  // which could\n"
+                 "  // span multiple lines\n"
+                 "  \n"
+                 "  using type = std::is_constructible<void>;\n"
+                 "  \n"
+                 "public:\n"
+                 "  \n"
+                 "  \n"
+                 "  int foo(int arg) {\n"
+                 "    int x = 199;\n"
+                 "    \n"
+                 "    return arg + x + arg;\n"
+                 "  }\n"
+                 "  \n"
+                 "  static void bar() {}\n"
+                 "  \n"
+                 "  \n"
+                 "private:\n"
+                 "  \n"
+                 "  class B {\n"
+                 "    class C {\n"
+                 "      class D {\n"
+                 "        // Some really nested comment\n"
+                 "        \n"
+                 "        \n"
+                 "        void method1() {\n"
+                 "          // Some method comment\n"
+                 "          \n"
+                 "#include <some/random/header.hpp>\n"
+                 "          \n"
+                 "          auto f1 = [this]() {\n"
+                 "            auto f2 = [&]() {\n"
+                 "              auto f3 = [=]() {\n"
+                 "                /* Some extremely nested multiline comment\n"
+                 "                   Some extremely nested multiline comment\n"
+                 "                   Some extremely nested multiline comment\n"
+                 "                 */\n"
+                 "                \n"
+                 "                int a = 0;\n"
+                 "                \n"
+                 "#define SOME_PP_VAR 1\n"
+                 "                \n"
+                 "#ifdef SOME_PP_VAR\n"
+                 "                \n"
+                 "                a = 1;\n"
+                 "#elif\n"
+                 "                \n"
+                 "  #if 1\n"
+                 "                \n"
+                 "                a = 2;\n"
+                 "                \n"
+                 "  #endif\n"
+                 "                \n"
+                 "#endif\n"
+                 "                \n"
+                 "                // Some extremely nested comment\n"
+                 "              };\n"
+                 "              \n"
+                 "              \n"
+                 "              int z = 1;\n"
+                 "            };\n"
+                 "            \n"
+                 "            int w = 1;\n"
+                 "          };\n"
+                 "          \n"
+                 "          int v = 1;\n"
+                 "        };\n"
+                 "      };\n"
+                 "    };\n"
+                 "  };\n"
+                 "};\n",
+                 Style);
+}
+
 } // namespace
 } // namespace test
 } // namespace format

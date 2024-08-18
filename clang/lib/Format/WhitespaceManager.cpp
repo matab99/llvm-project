@@ -61,6 +61,19 @@ void WhitespaceManager::replaceWhitespace(FormatToken &Tok, unsigned Newlines,
                            Spaces, StartOfTokenColumn, Newlines, "", "",
                            IsAligned, InPPDirective && !Tok.IsFirst,
                            /*IsInsideToken=*/false));
+
+  if (Style.EmptyLineIndentation != FormatStyle::ELI_Never) {
+    // Empty line indentation level can vary depending on the content of
+    // chosen preprocessor conditional branches during a formatting run. This
+    // can lead to multiple Change objects being generated for a '#' token, each
+    // with a possibly different BreakLevel value set for that token. In effect,
+    // the resulting Replacement objects would be in collision with each other.
+    // The line below prevents whitespace replacement from being created by
+    // checking whether a Change for the '#' has already been generated in a
+    // previous formatting run.
+    bool WasChanged = (Tok.isPreprocessorConditional() && Tok.Next->Finalized);
+    Changes.back().CreateReplacement = !WasChanged;
+  }
 }
 
 void WhitespaceManager::addUntouchableToken(const FormatToken &Tok,
@@ -1672,15 +1685,7 @@ void WhitespaceManager::generateChanges() {
                                  C.PreviousEndOfTokenColumn,
                                  C.EscapedNewlineColumn);
       } else {
-        auto NewlineIndent = 0;
-        if (Style.EmptyLineIndentation ==
-            FormatStyle::EmptyLineIndentationStyle::ELI_Auto) {
-          auto LastNewlineIndent =
-              (i > 0) ? Changes[i - 1].Tok->IndentLevel : 0;
-          auto NewNewlineIndent = Changes[i].Tok->IndentLevel;
-          NewlineIndent = std::max(LastNewlineIndent, NewNewlineIndent);
-        }
-        appendNewlineText(ReplacementText, C.NewlinesBefore, NewlineIndent);
+        appendNewlineText(ReplacementText, C.NewlinesBefore, C.Tok->BreakLevel);
       }
       // FIXME: This assert should hold if we computed the column correctly.
       // assert((int)C.StartOfTokenColumn >= C.Spaces);
@@ -1713,24 +1718,25 @@ void WhitespaceManager::storeReplacement(SourceRange Range, StringRef Text) {
 }
 
 void WhitespaceManager::appendNewlineText(std::string &Text, unsigned Newlines,
-                                          unsigned NewlineIndent) {
+                                          unsigned BreakLevel) {
   if (Newlines == 0)
     return;
 
-  auto Newline = std::string(UseCRLF ? "\r\n" : "\n");
-  auto Indent = std::string();
-  if (NewlineIndent > 0 && Newlines > 1) {
-    appendIndentText(Indent, NewlineIndent, NewlineIndent * Style.IndentWidth,
-                     0, false);
+  std::string NewlineText(UseCRLF ? "\r\n" : "\n");
+  std::string BreakIndentText;
+
+  if (BreakLevel > 0) {
+    appendIndentText(BreakIndentText, BreakLevel,
+                     BreakLevel * Style.IndentWidth, 0, false);
   }
 
-  Text.reserve(Text.size() + Newlines * (Newline.size()) +
-               (Newlines - 1) * Indent.size());
+  Text.reserve(Text.size() + Newlines * NewlineText.size() +
+               (Newlines - 1) * BreakIndentText.size());
 
-  for (unsigned int i = 0; i < Newlines; ++i) {
-    Text.append(Newline);
+  for (unsigned i = 0; i < Newlines; ++i) {
+    Text.append(NewlineText);
     if (i + 1 < Newlines)
-      Text.append(Indent);
+      Text.append(BreakIndentText);
   }
 }
 

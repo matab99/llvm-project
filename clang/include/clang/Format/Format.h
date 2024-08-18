@@ -2231,6 +2231,41 @@ struct FormatStyle {
   /// \version 3.7
   bool BreakBeforeTernaryOperators;
 
+  /// Different ways to break binary operations.
+  enum BreakBinaryOperationsStyle : int8_t {
+    /// Don't break binary operations
+    /// \code
+    ///    aaa + bbbb * ccccc - ddddd +
+    ///    eeeeeeeeeeeeeeee;
+    /// \endcode
+    BBO_Never,
+
+    /// Binary operations will either be all on the same line, or each operation
+    /// will have one line each.
+    /// \code
+    ///    aaa +
+    ///    bbbb *
+    ///    ccccc -
+    ///    ddddd +
+    ///    eeeeeeeeeeeeeeee;
+    /// \endcode
+    BBO_OnePerLine,
+
+    /// Binary operations of a particular precedence that exceed the column
+    /// limit will have one line each.
+    /// \code
+    ///    aaa +
+    ///    bbbb * ccccc -
+    ///    ddddd +
+    ///    eeeeeeeeeeeeeeee;
+    /// \endcode
+    BBO_RespectPrecedence
+  };
+
+  /// The break constructor initializers style to use.
+  /// \version 20
+  BreakBinaryOperationsStyle BreakBinaryOperations;
+
   /// Different ways to break initializers.
   enum BreakConstructorInitializersStyle : int8_t {
     /// Break constructor initializers before the colon and after the commas.
@@ -2622,6 +2657,69 @@ struct FormatStyle {
   /// Defines in which cases to put empty line before access modifiers.
   /// \version 12
   EmptyLineBeforeAccessModifierStyle EmptyLineBeforeAccessModifier;
+
+  enum EmptyLineIndentationStyle : int8_t {
+    /// Do not append any indentation on empty lines.
+    ELI_Never,
+
+    /// Always append indentation to empty lines. Empty lines are aligned to the
+    /// surrounding block/nesting level while also taking into account additional
+    /// indentation modifiers related to other style options (e.g. Whitesmiths
+    /// brace styling, access modifiers indentation). Indentation of preprocessing 
+    /// directives is not factored into calculation of empty line indentations.
+    /// Such lines are treated in a transparent way i.e. empty line indentation is
+    /// simply propagated through them. Example below shows resulting empty line
+    /// indentation with '.' characters representing empty spaces:
+    /// \code
+    ///   #ifdef PP_VAR
+    ///   ..#if 1
+    ///
+    ///   int global = 0;
+    ///
+    ///   ..#endif
+    ///   #endif
+    ///
+    ///   class foo {
+    ///   ..
+    ///   ..class bar {
+    ///   ....int method(int c) {
+    ///   ......
+    ///   #ifdef PP_VAR
+    ///   ......
+    ///   ......int x = 1;
+    ///   #else
+    ///   ......
+    ///   ......int x = c;
+    ///   ......
+    ///   #endif
+    ///   ......
+    ///   ......return c + x;
+    ///   ....}
+    ///   ..};
+    ///   ..
+    ///   private:
+    ///   ..bool baz(int x) {
+    ///   ....
+    ///   ....int y = 1;
+    ///   .....
+    ///   ....auto f = [&]() {
+    ///   ......int z = true;
+    ///   ......
+    ///   ......return z && x == y;
+    ///   ....};
+    ///   ....
+    ///   ....return f();
+    ///   ..}
+    ///   };
+    /// \endcode
+    ELI_Always
+  };
+
+  /// Defines if empty lines contain any whitespace indentation.
+  /// ``EmptyLineIndentation`` configuration handles the number of
+  /// whitespace indentation appended to the start of each empty line.
+  /// \version 20
+  EmptyLineIndentationStyle EmptyLineIndentation;
 
   /// If ``true``, clang-format detects whether function calls and
   /// definitions are formatted with one parameter per line.
@@ -5071,6 +5169,7 @@ struct FormatStyle {
            BreakBeforeConceptDeclarations == R.BreakBeforeConceptDeclarations &&
            BreakBeforeInlineASMColon == R.BreakBeforeInlineASMColon &&
            BreakBeforeTernaryOperators == R.BreakBeforeTernaryOperators &&
+           BreakBinaryOperations == R.BreakBinaryOperations &&
            BreakConstructorInitializers == R.BreakConstructorInitializers &&
            BreakFunctionDefinitionParameters ==
                R.BreakFunctionDefinitionParameters &&
@@ -5088,6 +5187,7 @@ struct FormatStyle {
            EmptyLineIndentation == R.EmptyLineIndentation &&
            EmptyLineAfterAccessModifier == R.EmptyLineAfterAccessModifier &&
            EmptyLineBeforeAccessModifier == R.EmptyLineBeforeAccessModifier &&
+           EmptyLineIndentation == R.EmptyLineIndentation &&
            ExperimentalAutoDetectBinPacking ==
                R.ExperimentalAutoDetectBinPacking &&
            FixNamespaceComments == R.FixNamespaceComments &&
