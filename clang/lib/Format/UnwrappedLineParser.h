@@ -38,9 +38,6 @@ struct UnwrappedLine {
   /// The indent level of the \c UnwrappedLine.
   unsigned Level = 0;
 
-  /// The indent level of empty breaking lines preceding this \c UnwrappedLine   
-  unsigned BreakLevel = 0;
-
   /// The \c PPBranchLevel (adjusted for header guards) if this line is a
   /// \c InMacroBody line, and 0 otherwise.
   unsigned PPLevel = 0;
@@ -239,7 +236,6 @@ private:
   void pushToken(FormatToken *Tok);
   void calculateBraceTypes(bool ExpectClassBody = false);
   void setPreviousRBraceType(TokenType Type);
-  void setBreakLevels();
 
   // Marks a conditional compilation edge (for example, an '#if', '#ifdef',
   // '#else' or merge conflict marker). If 'Unreachable' is true, assumes

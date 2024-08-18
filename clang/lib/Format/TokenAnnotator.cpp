@@ -3563,6 +3563,82 @@ void TokenAnnotator::setCommentLineLevels(
   }
 }
 
+void TokenAnnotator::setEmptyLineLevels(
+    SmallVectorImpl<AnnotatedLine *> &Lines) const {
+  if (Style.EmptyLineIndentation == FormatStyle::ELI_Never)
+    return;
+
+  // Generic function which iterates through all lines in-order and calls a
+  // Visitor callback on each line with an AnnotatedLine reference.
+  const auto TraverseLines = [&](auto Visitor) {
+    const auto VisitLines = [&](auto &Lines, auto &LineVisitor) -> void {
+      for (AnnotatedLine *Line : Lines) {
+        Visitor(*Line);
+        for (auto *Current = Line->First; Current; Current = Current->Next)
+          if (!Current->Children.empty())
+            LineVisitor(Current->Children, LineVisitor);
+      }
+    };
+
+    VisitLines(Lines, VisitLines);
+  };
+
+  // Update empty line indent level (break level) for all tokens which are not
+  // in preprocessor lines.
+  TraverseLines([&](AnnotatedLine &Line) {
+    if (Line.InPPDirective)
+      return;
+
+    for (auto *Current = Line.First; Current; Current = Current->Next) {
+      Current->BreakLevel = Current->IndentLevel;
+
+      bool IsClosingBrace = Current->is(tok::r_brace);
+      bool Indented = (Style.BreakBeforeBraces == FormatStyle::BS_Whitesmiths);
+      bool ClosesBlock = Current->closesBlockOrBlockTypeList(Style);
+      bool MatchingLine =
+          (Line.MatchingOpeningBlockLineIndex != UnwrappedLine::kInvalidIndex);
+
+      if (IsClosingBrace && !Indented && (ClosesBlock || MatchingLine))
+        Current->BreakLevel += 1;
+    }
+  });
+
+  // Update empty line indent level (break level) for all tokens which are in
+  // preprocessor lines.
+  llvm::SmallVector<FormatToken *> TokensInPP;
+  llvm::SmallVector<FormatToken *> TokensOutPP;
+
+  TraverseLines([&](AnnotatedLine &Line) {
+    if (!Line.First || Line.First->is(tok::eof))
+      return;
+
+    auto &Output = Line.InPPDirective ? TokensInPP : TokensOutPP;
+    for (auto *Current = Line.First; Current; Current = Current->Next)
+      Output.push_back(Current);
+  });
+
+  const auto Loc = [](const FormatToken *T) { return T->Tok.getLocation(); };
+  llvm::sort(TokensInPP, [&](auto x, auto y) { return Loc(x) < Loc(y); });
+  llvm::sort(TokensOutPP, [&](auto x, auto y) { return Loc(x) < Loc(y); });
+
+  for (auto &TokInPP : llvm::reverse(TokensInPP)) {
+    while (TokensOutPP.size() > 1) {
+      const auto &PrevOutPP = *(TokensOutPP.end() - 2);
+      if (Loc(TokInPP) < Loc(PrevOutPP))
+        TokensOutPP.pop_back();
+      else
+        break;
+    }
+
+    TokInPP->BreakLevel = 0;
+    if (!TokensOutPP.empty()) {
+      const auto &NextOutPP = *(TokensOutPP.end() - 1);
+      if (Loc(TokInPP) < Loc(NextOutPP))
+        TokInPP->BreakLevel = (NextOutPP)->BreakLevel;
+    }
+  }
+}
+
 static unsigned maxNestingDepth(const AnnotatedLine &Line) {
   unsigned Result = 0;
   for (const auto *Tok = Line.First; Tok; Tok = Tok->Next)
@@ -4085,7 +4161,6 @@ void TokenAnnotator::calculateFormattingInformation(AnnotatedLine &Line) const {
       --IndentLevel;
     }
     Current->IndentLevel = IndentLevel;
-    Current->BreakLevel = Line.BreakLevel;
     if (Current->opensBlockOrBlockTypeList(Style))
       ++IndentLevel;
   }
