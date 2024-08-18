@@ -2455,6 +2455,7 @@ public:
     for (AnnotatedLine *Line : AnnotatedLines)
       Annotator.calculateFormattingInformation(*Line);
     Annotator.setCommentLineLevels(AnnotatedLines);
+    Annotator.setEmptyLineLevels(AnnotatedLines);
 
     WhitespaceManager Whitespaces(
         Env.getSourceManager(), Style,

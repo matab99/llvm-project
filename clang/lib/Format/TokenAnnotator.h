@@ -48,7 +48,7 @@ class AnnotatedLine {
 public:
   AnnotatedLine(const UnwrappedLine &Line)
       : First(Line.Tokens.front().Tok), Type(LT_Other), Level(Line.Level),
-        BreakLevel(Line.BreakLevel), PPLevel(Line.PPLevel),
+        PPLevel(Line.PPLevel),
         MatchingOpeningBlockLineIndex(Line.MatchingOpeningBlockLineIndex),
         MatchingClosingBlockLineIndex(Line.MatchingClosingBlockLineIndex),
         InPPDirective(Line.InPPDirective),
@@ -223,6 +223,7 @@ public:
   /// subsequent line.
   // FIXME: Can/should this be done in the UnwrappedLineParser?
   void setCommentLineLevels(SmallVectorImpl<AnnotatedLine *> &Lines) const;
+  void setEmptyLineLevels(SmallVectorImpl<AnnotatedLine *> &Lines) const;
 
   void annotate(AnnotatedLine &Line);
   void calculateFormattingInformation(AnnotatedLine &Line) const;

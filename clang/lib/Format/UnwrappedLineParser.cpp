@@ -293,7 +293,6 @@ void UnwrappedLineParser::parseFile() {
   }
   flushComments(true);
   addUnwrappedLine();
-  setBreakLevels();
 }
 
 void UnwrappedLineParser::parseCSharpGenericTypeConstraint() {
@@ -661,92 +660,6 @@ void UnwrappedLineParser::setPreviousRBraceType(TokenType Type) {
   if (auto Prev = FormatTok->getPreviousNonComment();
       Prev && Prev->is(tok::r_brace)) {
     Prev->setFinalizedType(Type);
-  }
-}
-
-void UnwrappedLineParser::setBreakLevels() {
-  if (Style.EmptyLineIndentation == FormatStyle::ELI_Never)
-    return;
-
-  struct UnwrappedLineData {
-    UnwrappedLine *Current = nullptr;
-    UnwrappedLine *Parent = nullptr;
-  };
-
-  // Generic function which iterates through all lines in-order and calls a
-  // Visitor callback on each line with a Data object passed as an argument.
-  const auto TraverseLines = [&](auto Visitor) {
-    const auto VisitLines = [&](auto &Lines, auto &LineVisitor,
-                                UnwrappedLineData Data) -> void {
-      for (UnwrappedLine &Line : Lines) {
-        Data.Current = &Line;
-        Visitor(Data);
-        for (auto &T : Line.Tokens) {
-          if (!T.Children.empty()) {
-            Data.Parent = &Line;
-            LineVisitor(T.Children, LineVisitor, Data);
-          }
-        }
-      }
-    };
-
-    VisitLines(Lines, VisitLines, {});
-  };
-
-  // Update empty line indent level (break level) for all lines which are not
-  // preprocessor lines.
-  TraverseLines([&](const UnwrappedLineData &Data) {
-    UnwrappedLine &Line = *Data.Current;
-    if (!Line.InPPDirective)
-      Line.BreakLevel = Line.Level;
-  });
-
-  // Update empty line indent level (break level) for all preprocessor lines.
-  llvm::SmallVector<UnwrappedLineData> LinesInPP;
-  llvm::SmallVector<UnwrappedLineData> LinesOutPP;
-
-  TraverseLines([&](const UnwrappedLineData &Data) {
-    UnwrappedLine &Line = *Data.Current;
-    if (Line.InPPDirective)
-      LinesInPP.push_back(Data);
-    else
-      LinesOutPP.push_back(Data);
-  });
-
-  for (const auto &PPLine : llvm::reverse(LinesInPP)) {
-    const auto Location = [&](const UnwrappedLineData &Data) {
-      const auto &Line = *Data.Current;
-      const auto &Token = Line.Tokens.front().Tok;
-      return Token->Tok.getLocation();
-    };
-
-    UnwrappedLineData *Next;
-    UnwrappedLineData *Previous;
-    while (!LinesOutPP.empty()) {
-      Next = nullptr;
-      Previous = (LinesOutPP.end() - 1);
-      if (Location(*Previous) < Location(PPLine))
-        break;
-
-      Next = (LinesOutPP.end() - 1);
-      Previous = nullptr;
-      if (LinesOutPP.size() == 1)
-        break;
-
-      Next = (LinesOutPP.end() - 1);
-      Previous = (LinesOutPP.end() - 2);
-      if (Location(*Previous) < Location(PPLine))
-        break;
-
-      LinesOutPP.pop_back();
-    }
-
-    if (Next)
-      PPLine.Current->BreakLevel = Next->Current->BreakLevel;
-    else if (Previous)
-      PPLine.Current->BreakLevel = Previous->Current->Level;
-    else
-      PPLine.Current->BreakLevel = 0;
   }
 }
 
