@@ -2510,40 +2510,6 @@ struct FormatStyle {
   /// \version 3.7
   bool DisableFormat;
 
-  enum EmptyLineIndentationStyle : int8_t {
-    /// Do not add any indentation to empty lines.
-    /// Note the difference in whitespaces on the 3rd line between
-    /// the 2 variable declaration statements:
-    /// \code
-    ///   int foo(int a, char b) {
-    ///     int x;
-    ///
-    ///     int y = 3;
-    ///   }
-    /// \endcode
-    ELI_Never,
-
-    /// Add indentation to empty lines in order to align whitespace between each
-    /// line. Note the difference in whitespaces on the 3rd line between
-    /// the 2 variable declaration statements:
-    /// \code
-    ///   int foo(int a, char b) {
-    ///     int x;
-    ///
-    ///     int y = 3;
-    ///   }
-    /// \endcode
-    ELI_Auto
-  };
-
-  /// If ``Never``, empty lines do not contain any indentation.
-  /// If ``Auto``, formatter inspects indentation levels between every 2
-  /// consecutive tokens and calculates empty line indentation as the maximum of
-  /// those 2 values. The resulting value is multiplied by indent width which
-  /// gives the number of spaces appended to every empty line.
-  /// \version 3.XXX
-  EmptyLineIndentationStyle EmptyLineIndentation;
-
   /// Different styles for empty line after access modifiers.
   /// ``EmptyLineBeforeAccessModifier`` configuration handles the number of
   /// empty lines between two access modifiers.

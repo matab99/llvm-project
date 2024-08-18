@@ -328,15 +328,6 @@ struct ScalarEnumerationTraits<FormatStyle::EscapedNewlineAlignmentStyle> {
 };
 
 template <>
-struct ScalarEnumerationTraits<FormatStyle::EmptyLineIndentationStyle> {
-  static void enumeration(IO &IO,
-                          FormatStyle::EmptyLineIndentationStyle &Value) {
-    IO.enumCase(Value, "Never", FormatStyle::ELI_Never);
-    IO.enumCase(Value, "Auto", FormatStyle::ELI_Auto);
-  }
-};
-
-template <>
 struct ScalarEnumerationTraits<FormatStyle::EmptyLineAfterAccessModifierStyle> {
   static void
   enumeration(IO &IO, FormatStyle::EmptyLineAfterAccessModifierStyle &Value) {
