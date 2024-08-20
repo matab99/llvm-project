@@ -471,6 +471,9 @@ public:
   /// This is used to avoid overlapping whitespace replacements when \c Newlines
   /// is recomputed for a finalized preprocessor branching directive.
   int Newlines = -1;
+  
+  /// The indentation of empty newlines before the \c Token after formatting.
+  int NewlineIndent = -1;
 
   /// The offset just past the last '\n' in this token's leading
   /// whitespace (relative to \c WhiteSpaceStart). 0 if there is no '\n'.
@@ -522,10 +525,6 @@ public:
 
   /// The indent level of this token. Copied from the surrounding line.
   unsigned IndentLevel = 0;
-
-  // The indent level of empty breaking lines preceding this token. Copied from
-  // the surrounding line.
-  unsigned BreakLevel = 0;
 
   /// Penalty for inserting a line break before this token.
   unsigned SplitPenalty = 0;

@@ -1326,139 +1326,145 @@ private:
 } // anonymous namespace
 
 unsigned UnwrappedLineFormatter::format(
-    const SmallVectorImpl<AnnotatedLine *> &Lines, bool DryRun,
+    const SmallVectorImpl<AnnotatedLine *> &AnnotatedLines, bool DryRun,
     int AdditionalIndent, bool FixBadIndentation, unsigned FirstStartColumn,
     unsigned NextStartColumn, unsigned LastStartColumn) {
-  LineJoiner Joiner(Style, Keywords, Lines);
-
   // Try to look up already computed penalty in DryRun-mode.
-  std::pair<const SmallVectorImpl<AnnotatedLine *> *, unsigned> CacheKey(
-      &Lines, AdditionalIndent);
+  auto CacheKey = std::pair(&AnnotatedLines, unsigned(AdditionalIndent));
   auto CacheIt = PenaltyCache.find(CacheKey);
   if (DryRun && CacheIt != PenaltyCache.end())
     return CacheIt->second;
 
   assert(!Lines.empty());
-  unsigned Penalty = 0;
-  LevelIndentTracker IndentTracker(Style, Keywords, Lines[0]->Level,
+
+  LevelIndentTracker IndentTracker(Style, Keywords, AnnotatedLines[0]->Level,
                                    AdditionalIndent);
-  const AnnotatedLine *PrevPrevLine = nullptr;
-  const AnnotatedLine *PreviousLine = nullptr;
-  const AnnotatedLine *NextLine = nullptr;
+  LineJoiner Joiner(Style, Keywords, AnnotatedLines);
+  SmallVector<const AnnotatedLine *> MergedLines;
 
   // The minimum level of consecutive lines that have been formatted.
   unsigned RangeMinLevel = UINT_MAX;
+  unsigned Penalty = 0;
 
-  bool FirstLine = true;
-  for (const AnnotatedLine *Line =
-           Joiner.getNextMergedLine(DryRun, IndentTracker);
-       Line; PrevPrevLine = PreviousLine, PreviousLine = Line, Line = NextLine,
-                           FirstLine = false) {
-    assert(Line->First);
-    const AnnotatedLine &TheLine = *Line;
+  MergedLines.push_back(Joiner.getNextMergedLine(DryRun, IndentTracker));
+  while (MergedLines.back()) {
+    bool FirstLine = (MergedLines.size() == 1);
     unsigned Indent = IndentTracker.getIndent();
 
-    // We continue formatting unchanged lines to adjust their indent, e.g. if a
-    // scope was added. However, we need to carefully stop doing this when we
-    // exit the scope of affected lines to prevent indenting the entire
+    const AnnotatedLine *NextLine = nullptr;
+    const AnnotatedLine &CurrentLine = *MergedLines.back();
+    const AnnotatedLine *PreviousLine =
+        (MergedLines.size() > 1) ? *(MergedLines.end() - 2) : nullptr;
+
+    assert(CurrentLine.First);
+
+    // We continue formatting unchanged lines to adjust their indent, e.g. if
+    // a scope was added. However, we need to carefully stop doing this when
+    // we exit the scope of affected lines to prevent indenting the entire
     // remaining file if it currently missing a closing brace.
-    bool PreviousRBrace =
-        PreviousLine && PreviousLine->startsWith(tok::r_brace);
+    bool PreviousRBrace = PreviousLine && PreviousLine->startsWith(tok::r_brace);
     bool ContinueFormatting =
-        TheLine.Level > RangeMinLevel ||
-        (TheLine.Level == RangeMinLevel && !PreviousRBrace &&
-         !TheLine.startsWith(tok::r_brace));
+        CurrentLine.Level > RangeMinLevel ||
+        (CurrentLine.Level == RangeMinLevel && !PreviousRBrace &&
+         !CurrentLine.startsWith(tok::r_brace));
 
     bool FixIndentation = (FixBadIndentation || ContinueFormatting) &&
-                          Indent != TheLine.First->OriginalColumn;
-    bool ShouldFormat = TheLine.Affected || FixIndentation;
+                          Indent != CurrentLine.First->OriginalColumn;
+    bool ShouldFormat = CurrentLine.Affected || FixIndentation;
     // We cannot format this line; if the reason is that the line had a
     // parsing error, remember that.
-    if (ShouldFormat && TheLine.Type == LT_Invalid && Status) {
+    if (ShouldFormat && CurrentLine.Type == LT_Invalid && Status) {
       Status->FormatComplete = false;
       Status->Line =
-          SourceMgr.getSpellingLineNumber(TheLine.First->Tok.getLocation());
+          SourceMgr.getSpellingLineNumber(CurrentLine.First->Tok.getLocation());
     }
 
-    if (ShouldFormat && TheLine.Type != LT_Invalid) {
+    if (ShouldFormat && CurrentLine.Type != LT_Invalid) {
       if (!DryRun) {
-        bool LastLine = TheLine.First->is(tok::eof);
-        formatFirstToken(TheLine, PreviousLine, PrevPrevLine, Lines, Indent,
+        bool LastLine = CurrentLine.First->is(tok::eof);
+        formatFirstToken(MergedLines, AnnotatedLines, Indent,
                          LastLine ? LastStartColumn : NextStartColumn + Indent);
       }
 
       NextLine = Joiner.getNextMergedLine(DryRun, IndentTracker);
-      unsigned ColumnLimit = getColumnLimit(TheLine.InPPDirective, NextLine);
+      unsigned ColumnLimit = getColumnLimit(CurrentLine.InPPDirective, NextLine);
       bool FitsIntoOneLine =
-          !TheLine.ContainsMacroCall &&
-          (TheLine.Last->TotalLength + Indent <= ColumnLimit ||
-           (TheLine.Type == LT_ImportStatement &&
+          !CurrentLine.ContainsMacroCall &&
+          (CurrentLine.Last->TotalLength + Indent <= ColumnLimit ||
+           (CurrentLine.Type == LT_ImportStatement &&
             (!Style.isJavaScript() || !Style.JavaScriptWrapImports)) ||
            (Style.isCSharp() &&
-            TheLine.InPPDirective)); // don't split #regions in C#
+            CurrentLine.InPPDirective)); // don't split #regions in C#
       if (Style.ColumnLimit == 0) {
         NoColumnLimitLineFormatter(Indenter, Whitespaces, Style, this)
-            .formatLine(TheLine, NextStartColumn + Indent,
+            .formatLine(CurrentLine, NextStartColumn + Indent,
                         FirstLine ? FirstStartColumn : 0, DryRun);
       } else if (FitsIntoOneLine) {
         Penalty += NoLineBreakFormatter(Indenter, Whitespaces, Style, this)
-                       .formatLine(TheLine, NextStartColumn + Indent,
+                       .formatLine(CurrentLine, NextStartColumn + Indent,
                                    FirstLine ? FirstStartColumn : 0, DryRun);
       } else {
         Penalty += OptimizingLineFormatter(Indenter, Whitespaces, Style, this)
-                       .formatLine(TheLine, NextStartColumn + Indent,
+                       .formatLine(CurrentLine, NextStartColumn + Indent,
                                    FirstLine ? FirstStartColumn : 0, DryRun);
       }
-      RangeMinLevel = std::min(RangeMinLevel, TheLine.Level);
+      RangeMinLevel = std::min(RangeMinLevel, CurrentLine.Level);
     } else {
       // If no token in the current line is affected, we still need to format
       // affected children.
-      if (TheLine.ChildrenAffected) {
-        for (const FormatToken *Tok = TheLine.First; Tok; Tok = Tok->Next)
+      if (CurrentLine.ChildrenAffected) {
+        for (const FormatToken *Tok = CurrentLine.First; Tok; Tok = Tok->Next)
           if (!Tok->Children.empty())
             format(Tok->Children, DryRun);
       }
 
       // Adapt following lines on the current indent level to the same level
-      // unless the current \c AnnotatedLine is not at the beginning of a line.
+      // unless the current \c AnnotatedLine is not at the beginning of a
+      // line.
       bool StartsNewLine =
-          TheLine.First->NewlinesBefore > 0 || TheLine.First->IsFirst;
+          CurrentLine.First->NewlinesBefore > 0 || CurrentLine.First->IsFirst;
       if (StartsNewLine)
-        IndentTracker.adjustToUnmodifiedLine(TheLine);
+        IndentTracker.adjustToUnmodifiedLine(CurrentLine);
       if (!DryRun) {
         bool ReformatLeadingWhitespace =
             StartsNewLine && ((PreviousLine && PreviousLine->Affected) ||
-                              TheLine.LeadingEmptyLinesAffected);
+                              CurrentLine.LeadingEmptyLinesAffected);
         // Format the first token.
         if (ReformatLeadingWhitespace) {
-          formatFirstToken(TheLine, PreviousLine, PrevPrevLine, Lines,
-                           TheLine.First->OriginalColumn,
-                           TheLine.First->OriginalColumn);
+          formatFirstToken(MergedLines, AnnotatedLines,
+                           CurrentLine.First->OriginalColumn,
+                           CurrentLine.First->OriginalColumn);
         } else {
-          Whitespaces->addUntouchableToken(*TheLine.First,
-                                           TheLine.InPPDirective);
+          Whitespaces->addUntouchableToken(*CurrentLine.First,
+                                           CurrentLine.InPPDirective);
         }
 
         // Notify the WhitespaceManager about the unchanged whitespace.
-        for (FormatToken *Tok = TheLine.First->Next; Tok; Tok = Tok->Next)
-          Whitespaces->addUntouchableToken(*Tok, TheLine.InPPDirective);
+        for (FormatToken *Tok = CurrentLine.First->Next; Tok; Tok = Tok->Next)
+          Whitespaces->addUntouchableToken(*Tok, CurrentLine.InPPDirective);
       }
       NextLine = Joiner.getNextMergedLine(DryRun, IndentTracker);
       RangeMinLevel = UINT_MAX;
     }
     if (!DryRun)
-      markFinalized(TheLine.First);
+      markFinalized(CurrentLine.First);
+    MergedLines.push_back(NextLine);
   }
   PenaltyCache[CacheKey] = Penalty;
   return Penalty;
 }
 
-static auto computeNewlines(const AnnotatedLine &Line,
-                            const AnnotatedLine *PreviousLine,
-                            const AnnotatedLine *PrevPrevLine,
-                            const SmallVectorImpl<AnnotatedLine *> &Lines,
-                            const FormatStyle &Style) {
-  const auto &RootToken = *Line.First;
+static auto
+computeNewlines(const SmallVector<const AnnotatedLine *> &MergedLines,
+                const SmallVectorImpl<AnnotatedLine *> &AnnotatedLines,
+                const FormatStyle &Style) {
+  const AnnotatedLine &CurrentLine = *MergedLines.back();
+  const AnnotatedLine *PreviousLine =
+      (MergedLines.size() > 1) ? *(MergedLines.end() - 2) : nullptr;
+  const AnnotatedLine *PrevPrevLine =
+      (MergedLines.size() > 2) ? *(MergedLines.end() - 3) : nullptr;
+  const FormatToken &RootToken = *CurrentLine.First;
+
   auto Newlines =
       std::min(RootToken.NewlinesBefore, Style.MaxEmptyLinesToKeep + 1);
   // Remove empty lines before "}" where applicable.
@@ -1466,11 +1472,11 @@ static auto computeNewlines(const AnnotatedLine &Line,
       (!RootToken.Next ||
        (RootToken.Next->is(tok::semi) && !RootToken.Next->Next)) &&
       // Do not remove empty lines before namespace closing "}".
-      !getNamespaceToken(&Line, Lines)) {
+      !getNamespaceToken(&CurrentLine, AnnotatedLines)) {
     Newlines = std::min(Newlines, 1u);
   }
   // Remove empty lines at the start of nested blocks (lambdas/arrow functions)
-  if (!PreviousLine && Line.Level > 0)
+  if (!PreviousLine && CurrentLine.Level > 0)
     Newlines = std::min(Newlines, 1u);
   if (Newlines == 0 && !RootToken.IsFirst)
     Newlines = 1;
@@ -1546,11 +1552,11 @@ static auto computeNewlines(const AnnotatedLine &Line,
 }
 
 void UnwrappedLineFormatter::formatFirstToken(
-    const AnnotatedLine &Line, const AnnotatedLine *PreviousLine,
-    const AnnotatedLine *PrevPrevLine,
-    const SmallVectorImpl<AnnotatedLine *> &Lines, unsigned Indent,
+    const SmallVector<const AnnotatedLine *> &MergedLines,
+    const SmallVectorImpl<AnnotatedLine *> &OriginalLines, unsigned Indent,
     unsigned NewlineIndent) {
-  FormatToken &RootToken = *Line.First;
+  const AnnotatedLine &CurLine = *MergedLines.back();
+  FormatToken &RootToken = *CurLine.First;
   if (RootToken.is(tok::eof)) {
     unsigned Newlines = std::min(
         RootToken.NewlinesBefore,
@@ -1562,8 +1568,7 @@ void UnwrappedLineFormatter::formatFirstToken(
   }
 
   if (RootToken.Newlines < 0) {
-    RootToken.Newlines =
-        computeNewlines(Line, PreviousLine, PrevPrevLine, Lines, Style);
+    RootToken.Newlines = computeNewlines(MergedLines, OriginalLines, Style);
     assert(RootToken.Newlines >= 0);
   }
 
@@ -1574,14 +1579,14 @@ void UnwrappedLineFormatter::formatFirstToken(
   // Javascript import statements are indented like normal statements.
   if (!Style.isJavaScript() &&
       Style.IndentPPDirectives != FormatStyle::PPDIS_BeforeHash &&
-      (Line.Type == LT_PreprocessorDirective ||
-       Line.Type == LT_ImportStatement)) {
+      (CurLine.Type == LT_PreprocessorDirective ||
+       CurLine.Type == LT_ImportStatement)) {
     Indent = 0;
   }
 
   Whitespaces->replaceWhitespace(RootToken, RootToken.Newlines, Indent, Indent,
                                  /*IsAligned=*/false,
-                                 Line.InPPDirective &&
+                                 CurLine.InPPDirective &&
                                      !RootToken.HasUnescapedNewline);
 }
 

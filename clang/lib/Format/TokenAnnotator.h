@@ -223,7 +223,6 @@ public:
   /// subsequent line.
   // FIXME: Can/should this be done in the UnwrappedLineParser?
   void setCommentLineLevels(SmallVectorImpl<AnnotatedLine *> &Lines) const;
-  void setEmptyLineLevels(SmallVectorImpl<AnnotatedLine *> &Lines) const;
 
   void annotate(AnnotatedLine &Line);
   void calculateFormattingInformation(AnnotatedLine &Line) const;

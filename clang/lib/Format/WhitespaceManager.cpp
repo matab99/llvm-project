@@ -61,19 +61,6 @@ void WhitespaceManager::replaceWhitespace(FormatToken &Tok, unsigned Newlines,
                            Spaces, StartOfTokenColumn, Newlines, "", "",
                            IsAligned, InPPDirective && !Tok.IsFirst,
                            /*IsInsideToken=*/false));
-
-  if (Style.EmptyLineIndentation != FormatStyle::ELI_Never) {
-    // Empty line indentation level can vary depending on the content of
-    // chosen preprocessor conditional branches during a formatting run. This
-    // can lead to multiple Change objects being generated for a '#' token, each
-    // with a possibly different BreakLevel value set for that token. In effect,
-    // the resulting Replacement objects would be in collision with each other.
-    // The line below prevents whitespace replacement from being created by
-    // checking whether a Change for the '#' has already been generated in a
-    // previous formatting run.
-    bool WasChanged = (Tok.isPreprocessorConditional() && Tok.Next->Finalized);
-    Changes.back().CreateReplacement = !WasChanged;
-  }
 }
 
 void WhitespaceManager::addUntouchableToken(const FormatToken &Tok,
@@ -1685,7 +1672,7 @@ void WhitespaceManager::generateChanges() {
                                  C.PreviousEndOfTokenColumn,
                                  C.EscapedNewlineColumn);
       } else {
-        appendNewlineText(ReplacementText, C.NewlinesBefore, C.Tok->BreakLevel);
+        appendNewlineText(ReplacementText, C.NewlinesBefore, "");
       }
       // FIXME: This assert should hold if we computed the column correctly.
       // assert((int)C.StartOfTokenColumn >= C.Spaces);
@@ -1717,26 +1704,21 @@ void WhitespaceManager::storeReplacement(SourceRange Range, StringRef Text) {
   }
 }
 
-void WhitespaceManager::appendNewlineText(std::string &Text, unsigned Newlines,
-                                          unsigned BreakLevel) {
+void WhitespaceManager::appendNewlineText(
+    std::string &Text, unsigned Newlines,
+    const std::string &NewlineIndentText) {
   if (Newlines == 0)
     return;
 
   std::string NewlineText(UseCRLF ? "\r\n" : "\n");
-  std::string BreakIndentText;
-
-  if (BreakLevel > 0) {
-    appendIndentText(BreakIndentText, BreakLevel,
-                     BreakLevel * Style.IndentWidth, 0, false);
-  }
 
   Text.reserve(Text.size() + Newlines * NewlineText.size() +
-               (Newlines - 1) * BreakIndentText.size());
+               (Newlines - 1) * NewlineIndentText.size());
 
   for (unsigned i = 0; i < Newlines; ++i) {
     Text.append(NewlineText);
     if (i + 1 < Newlines)
-      Text.append(BreakIndentText);
+      Text.append(NewlineIndentText);
   }
 }
 

@@ -350,7 +350,7 @@ private:
   /// Stores \p Text as the replacement for the whitespace in \p Range.
   void storeReplacement(SourceRange Range, StringRef Text);
   void appendNewlineText(std::string &Text, unsigned Newlines,
-                         unsigned BreakLevel);
+                         const std::string &NewlineIndentText);
   void appendEscapedNewlineText(std::string &Text, unsigned Newlines,
                                 unsigned PreviousEndOfTokenColumn,
                                 unsigned EscapedNewlineColumn);
