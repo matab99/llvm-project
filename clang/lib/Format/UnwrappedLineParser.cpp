@@ -164,6 +164,7 @@ UnwrappedLineParser::UnwrappedLineParser(
       LangOpts(getFormattingLangOpts(Style)), Keywords(Keywords),
       CommentPragmasRegex(Style.CommentPragmas), Tokens(nullptr),
       Callback(Callback), AllTokens(Tokens), PPBranchLevel(-1),
+      PPBranchIndex(0), PPBranchCount(0),
       IncludeGuard(Style.IndentPPDirectives == FormatStyle::PPDIS_None
                        ? IG_Rejected
                        : IG_Inited),
@@ -174,6 +175,8 @@ UnwrappedLineParser::UnwrappedLineParser(
 
 void UnwrappedLineParser::reset() {
   PPBranchLevel = -1;
+  PPBranchIndex = 0;
+  PPBranchCount = 0;
   IncludeGuard = Style.IndentPPDirectives == FormatStyle::PPDIS_None
                      ? IG_Rejected
                      : IG_Inited;
@@ -663,21 +666,6 @@ void UnwrappedLineParser::setPreviousRBraceType(TokenType Type) {
   }
 }
 
-template <class T>
-static inline void hash_combine(std::size_t &seed, const T &v) {
-  std::hash<T> hasher;
-  seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-}
-
-size_t UnwrappedLineParser::computePPHash() const {
-  size_t h = 0;
-  for (const auto &i : PPStack) {
-    hash_combine(h, size_t(i.Kind));
-    hash_combine(h, i.Line);
-  }
-  return h;
-}
-
 // Checks whether \p ParsedLine might fit on a single line. If \p OpeningBrace
 // is not null, subtracts its length (plus the preceding space) when computing
 // the length of \p ParsedLine. We must clone the tokens of \p ParsedLine before
@@ -776,7 +764,7 @@ FormatToken *UnwrappedLineParser::parseBlock(bool MustBeDeclaration,
     ++Line->Level;
   }
 
-  size_t PPStartHash = computePPHash();
+  const int PPStartIndex = PPBranchIndex;
 
   const unsigned InitialLevel = Line->Level;
   if (VerilogHierarchy) {
@@ -869,7 +857,7 @@ FormatToken *UnwrappedLineParser::parseBlock(bool MustBeDeclaration,
     FormatTok->MatchingParen = Tok;
   }
 
-  size_t PPEndHash = computePPHash();
+  const int PPEndIndex = PPBranchIndex;
 
   // Munch the closing brace.
   nextToken(/*LevelDifference=*/-AddLevels);
@@ -906,7 +894,7 @@ FormatToken *UnwrappedLineParser::parseBlock(bool MustBeDeclaration,
   if (MunchSemi && FormatTok->is(tok::semi))
     nextToken();
 
-  if (PPStartHash == PPEndHash) {
+  if (PPStartIndex == PPEndIndex) {
     Line->MatchingOpeningBlockLineIndex = OpeningLineIndex;
     if (OpeningLineIndex != UnwrappedLine::kInvalidIndex) {
       // Update the opening line to add the forward reference as well
@@ -1036,15 +1024,13 @@ void UnwrappedLineParser::parsePPDirective() {
 }
 
 void UnwrappedLineParser::conditionalCompilationCondition(bool Unreachable) {
-  size_t Line = CurrentLines->size();
-  if (CurrentLines == &PreprocessorDirectives)
-    Line += Lines.size();
-
+  PPBranchIndex = ++PPBranchCount;
+  int BranchIndex = PPBranchIndex;
   if (Unreachable ||
       (!PPStack.empty() && PPStack.back().Kind == PP_Unreachable)) {
-    PPStack.push_back({PP_Unreachable, Line});
+    PPStack.push_back({PP_Unreachable, BranchIndex});
   } else {
-    PPStack.push_back({PP_Conditional, Line});
+    PPStack.push_back({PP_Conditional, BranchIndex});
   }
 }
 
@@ -1084,6 +1070,8 @@ void UnwrappedLineParser::conditionalCompilationEnd() {
     PPChainBranchIndex.pop();
   if (!PPStack.empty())
     PPStack.pop_back();
+
+  PPBranchIndex = PPStack.empty() ? 0 : PPStack.back().Index;
 }
 
 void UnwrappedLineParser::parsePPIf(bool IfDef) {
@@ -1108,9 +1096,14 @@ void UnwrappedLineParser::parsePPIf(bool IfDef) {
       }
     }
   }
+
+  for (auto &N : Line->Tokens)
+    N.Tok->BranchIndex = PPBranchIndex;
+
   --PPBranchLevel;
   parsePPUnknown();
   ++PPBranchLevel;
+
   if (IncludeGuard == IG_Inited && MaybeIncludeGuard) {
     IncludeGuard = IG_IfNdefed;
     IncludeGuardToken = IfCondition;
@@ -1126,14 +1119,27 @@ void UnwrappedLineParser::parsePPElse() {
   if (PPBranchLevel == -1)
     conditionalCompilationStart(/*Unreachable=*/true);
   conditionalCompilationAlternative();
+
+  for (auto &N : Line->Tokens)
+    N.Tok->BranchIndex = PPBranchIndex;
+
   --PPBranchLevel;
   parsePPUnknown();
   ++PPBranchLevel;
 }
 
 void UnwrappedLineParser::parsePPEndIf() {
+  int OldBranchIndex = PPBranchIndex;
   conditionalCompilationEnd();
+  int NewBranchIndex = PPBranchIndex;
+
+  for (auto &N : Line->Tokens)
+    N.Tok->BranchIndex = OldBranchIndex;
+
+  PPBranchIndex = OldBranchIndex;
   parsePPUnknown();
+  PPBranchIndex = NewBranchIndex;
+
   // If the #endif of a potential include guard is the last thing in the file,
   // then we found an include guard.
   if (IncludeGuard == IG_Defined && PPBranchLevel == -1 && Tokens->isEOF() &&
@@ -5042,6 +5048,8 @@ UnwrappedLineParser::parseMacroCall() {
 
 void UnwrappedLineParser::pushToken(FormatToken *Tok) {
   Line->Tokens.push_back(UnwrappedLineNode(Tok));
+  Line->Tokens.back().Tok->BranchIndex = PPBranchIndex;
+
   if (MustBreakBeforeNextToken) {
     Line->Tokens.back().Tok->MustBreakBefore = true;
     Line->Tokens.back().Tok->MustBreakBeforeFinalized = true;

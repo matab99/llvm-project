@@ -45,7 +45,8 @@ WhitespaceManager::Change::Change(const FormatToken &Tok,
       PreviousLinePostfix(PreviousLinePostfix),
       CurrentLinePrefix(CurrentLinePrefix), IsAligned(IsAligned),
       ContinuesPPDirective(ContinuesPPDirective), Spaces(Spaces),
-      IsInsideToken(IsInsideToken), IsTrailingComment(false), TokenLength(0),
+      IsInsideToken(IsInsideToken), NewlineIndentLevel(0), NewlineSpaces(0),
+      IsNewlineAligned(false), IsTrailingComment(false), TokenLength(0),
       PreviousEndOfTokenColumn(0), EscapedNewlineColumn(0),
       StartOfBlockComment(nullptr), IndentationOffset(0), ConditionalsLevel(0) {
 }
@@ -121,6 +122,7 @@ const tooling::Replacements &WhitespaceManager::generateReplacements() {
   alignTrailingComments();
   alignEscapedNewlines();
   alignArrayInitializers();
+  alignEmptyLines();
   generateChanges();
 
   return Replaces;
@@ -525,9 +527,9 @@ AlignTokenSequence(const FormatStyle &Style, unsigned Start, unsigned End,
 template <typename F>
 static unsigned AlignTokens(const FormatStyle &Style, F &&Matches,
                             SmallVector<WhitespaceManager::Change, 16> &Changes,
-                            unsigned StartAt,
                             const FormatStyle::AlignConsecutiveStyle &ACS = {},
-                            bool RightJustify = false) {
+                            bool RightJustify = false,
+                            std::optional<unsigned> StartAt = {}) {
   // We arrange each line in 3 parts. The operator to be aligned (the anchor),
   // and text to its left and right. In the aligned text the width of each part
   // will be the maximum of that over the block that has been aligned. Maximum
@@ -548,10 +550,13 @@ static unsigned AlignTokens(const FormatStyle &Style, F &&Matches,
   unsigned StartOfSequence = 0;
   unsigned EndOfSequence = 0;
 
+  // Branch index of the start of the current token sequence.
+  int StartBranchIndex = -1;
+
   // Measure the scope level (i.e. depth of (), [], {}) of the first token, and
   // abort when we hit any token in a higher scope than the starting one.
-  auto IndentAndNestingLevel = StartAt < Changes.size()
-                                   ? Changes[StartAt].indentAndNestingLevel()
+  auto IndentAndNestingLevel = (StartAt && StartAt < Changes.size())
+                                   ? Changes[*StartAt].indentAndNestingLevel()
                                    : std::tuple<unsigned, unsigned, unsigned>();
 
   // Keep track of the number of commas before the matching tokens, we will only
@@ -584,9 +589,10 @@ static unsigned AlignTokens(const FormatStyle &Style, F &&Matches,
     WidthRight = 0;
     StartOfSequence = 0;
     EndOfSequence = 0;
+    StartBranchIndex = -1;
   };
 
-  unsigned i = StartAt;
+  unsigned i = StartAt.value_or(0);
   for (unsigned e = Changes.size(); i != e; ++i) {
     auto &CurrentChange = Changes[i];
     if (CurrentChange.indentAndNestingLevel() < IndentAndNestingLevel)
@@ -605,7 +611,10 @@ static unsigned AlignTokens(const FormatStyle &Style, F &&Matches,
       bool NoMatchBreak =
           !FoundMatchOnLine && !(LineIsComment && ACS.AcrossComments);
 
-      if (EmptyLineBreak || NoMatchBreak)
+      bool BranchIndexChanged =
+          (StartBranchIndex != CurrentChange.Tok->BranchIndex);
+
+      if (EmptyLineBreak || NoMatchBreak || BranchIndexChanged)
         AlignCurrentSequence();
 
       // A new line starts, re-initialize line status tracking bools.
@@ -625,7 +634,7 @@ static unsigned AlignTokens(const FormatStyle &Style, F &&Matches,
     } else if (CurrentChange.indentAndNestingLevel() > IndentAndNestingLevel) {
       // Call AlignTokens recursively, skipping over this scope block.
       unsigned StoppedAt =
-          AlignTokens(Style, Matches, Changes, i, ACS, RightJustify);
+          AlignTokens(Style, Matches, Changes, ACS, RightJustify, i);
       i = StoppedAt - 1;
       continue;
     }
@@ -641,8 +650,10 @@ static unsigned AlignTokens(const FormatStyle &Style, F &&Matches,
     CommasBeforeLastMatch = CommasBeforeMatch;
     FoundMatchOnLine = true;
 
-    if (StartOfSequence == 0)
+    if (StartOfSequence == 0) {
       StartOfSequence = i;
+      StartBranchIndex = CurrentChange.Tok->BranchIndex;
+    }
 
     unsigned ChangeWidthLeft = CurrentChange.StartOfTokenColumn;
     unsigned ChangeWidthAnchor = 0;
@@ -674,6 +685,7 @@ static unsigned AlignTokens(const FormatStyle &Style, F &&Matches,
         Style.ColumnLimit < NewLeft + NewAnchor + NewRight) {
       AlignCurrentSequence();
       StartOfSequence = i;
+      StartBranchIndex = CurrentChange.Tok->BranchIndex;
       WidthLeft = ChangeWidthLeft;
       WidthAnchor = ChangeWidthAnchor;
       WidthRight = ChangeWidthRight;
@@ -850,7 +862,7 @@ void WhitespaceManager::alignConsecutiveAssignments() {
                       (Style.isVerilog() && C.Tok->is(tok::lessequal) &&
                        C.Tok->getPrecedence() == prec::Assignment));
       },
-      Changes, /*StartAt=*/0, Style.AlignConsecutiveAssignments,
+      Changes, Style.AlignConsecutiveAssignments,
       /*RightJustify=*/true);
 }
 
@@ -876,7 +888,7 @@ void WhitespaceManager::alignConsecutiveColons(
 
         return C.Tok->is(Type);
       },
-      Changes, /*StartAt=*/0, AlignStyle);
+      Changes, AlignStyle);
 }
 
 void WhitespaceManager::alignConsecutiveShortCaseStatements(bool IsExpr) {
@@ -1039,7 +1051,7 @@ void WhitespaceManager::alignConsecutiveDeclarations() {
         }
         return true;
       },
-      Changes, /*StartAt=*/0, Style.AlignConsecutiveDeclarations);
+      Changes, Style.AlignConsecutiveDeclarations);
 }
 
 void WhitespaceManager::alignChainedConditionals() {
@@ -1054,7 +1066,7 @@ void WhitespaceManager::alignChainedConditionals() {
                    (C.Tok->Next->FakeLParens.size() == 0 ||
                     C.Tok->Next->FakeLParens.back() != prec::Conditional)));
         },
-        Changes, /*StartAt=*/0);
+        Changes);
   } else {
     static auto AlignWrappedOperand = [](Change const &C) {
       FormatToken *Previous = C.Tok->getPreviousNonComment();
@@ -1080,7 +1092,7 @@ void WhitespaceManager::alignChainedConditionals() {
                   !(&C + 1)->IsTrailingComment) ||
                  AlignWrappedOperand(C);
         },
-        Changes, /*StartAt=*/0);
+        Changes);
   }
 }
 
@@ -1091,6 +1103,7 @@ void WhitespaceManager::alignTrailingComments() {
   const int Size = Changes.size();
   int MinColumn = 0;
   int StartOfSequence = 0;
+  int StartBranchIndex = -1;
   bool BreakBeforeNext = false;
   int NewLineThreshold = 1;
   if (Style.AlignTrailingComments.Kind == FormatStyle::TCAS_Always)
@@ -1103,6 +1116,9 @@ void WhitespaceManager::alignTrailingComments() {
     Newlines += C.NewlinesBefore;
     if (!C.IsTrailingComment)
       continue;
+
+    if (StartBranchIndex == -1)
+      StartBranchIndex = C.Tok->BranchIndex;
 
     if (Style.AlignTrailingComments.Kind == FormatStyle::TCAS_Leave) {
       const int OriginalSpaces =
@@ -1200,8 +1216,10 @@ void WhitespaceManager::alignTrailingComments() {
       MinColumn = 0;
       MaxColumn = INT_MAX;
       StartOfSequence = I + 1;
+      StartBranchIndex = -1;
     } else if (BreakBeforeNext || Newlines > NewLineThreshold ||
                (ChangeMinColumn > MaxColumn || ChangeMaxColumn < MinColumn) ||
+               (StartBranchIndex != C.Tok->BranchIndex) ||
                // Break the comment sequence if the previous line did not end
                // in a trailing comment.
                (C.NewlinesBefore == 1 && I > 0 &&
@@ -1211,6 +1229,7 @@ void WhitespaceManager::alignTrailingComments() {
       MinColumn = ChangeMinColumn;
       MaxColumn = ChangeMaxColumn;
       StartOfSequence = I;
+      StartBranchIndex = C.Tok->BranchIndex;
     } else {
       MinColumn = std::max(MinColumn, ChangeMinColumn);
       MaxColumn = std::min(MaxColumn, ChangeMaxColumn);
@@ -1308,6 +1327,14 @@ void WhitespaceManager::alignArrayInitializers() {
       if (!FoundComplete)
         ChangeIndex = ChangeEnd;
     }
+  }
+}
+
+void WhitespaceManager::alignEmptyLines() {
+  for (auto &C : llvm::reverse(Changes)) {
+    C.NewlineIndentLevel = 0;
+    C.NewlineSpaces = 0;
+    C.IsNewlineAligned = false;
   }
 }
 
@@ -1672,7 +1699,9 @@ void WhitespaceManager::generateChanges() {
                                  C.PreviousEndOfTokenColumn,
                                  C.EscapedNewlineColumn);
       } else {
-        appendNewlineText(ReplacementText, C.NewlinesBefore, "");
+        appendNewlineText(ReplacementText, C.NewlinesBefore,
+                          C.NewlineIndentLevel, C.NewlineSpaces,
+                          C.IsNewlineAligned);
       }
       // FIXME: This assert should hold if we computed the column correctly.
       // assert((int)C.StartOfTokenColumn >= C.Spaces);
@@ -1704,13 +1733,18 @@ void WhitespaceManager::storeReplacement(SourceRange Range, StringRef Text) {
   }
 }
 
-void WhitespaceManager::appendNewlineText(
-    std::string &Text, unsigned Newlines,
-    const std::string &NewlineIndentText) {
+void WhitespaceManager::appendNewlineText(std::string &Text, unsigned Newlines,
+                                          unsigned NewlineIndentLevel,
+                                          unsigned NewlineSpaces,
+                                          bool IsNewlineAligned) {
   if (Newlines == 0)
     return;
 
   std::string NewlineText(UseCRLF ? "\r\n" : "\n");
+  std::string NewlineIndentText;
+
+  appendIndentText(NewlineIndentText, NewlineIndentLevel, NewlineSpaces, 0,
+                   IsNewlineAligned);
 
   Text.reserve(Text.size() + Newlines * NewlineText.size() +
                (Newlines - 1) * NewlineIndentText.size());

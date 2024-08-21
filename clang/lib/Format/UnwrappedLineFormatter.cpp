@@ -950,8 +950,6 @@ private:
 };
 
 static void markFinalized(FormatToken *Tok) {
-  if (Tok->isPreprocessorConditional())
-    Tok = Tok->Next;
   for (; Tok; Tok = Tok->Next) {
     if (Tok->MacroCtx && Tok->MacroCtx->Role == MR_ExpandedArg) {
       // In the first pass we format all macro arguments in the expanded token
@@ -1362,7 +1360,8 @@ unsigned UnwrappedLineFormatter::format(
     // a scope was added. However, we need to carefully stop doing this when
     // we exit the scope of affected lines to prevent indenting the entire
     // remaining file if it currently missing a closing brace.
-    bool PreviousRBrace = PreviousLine && PreviousLine->startsWith(tok::r_brace);
+    bool PreviousRBrace =
+        PreviousLine && PreviousLine->startsWith(tok::r_brace);
     bool ContinueFormatting =
         CurrentLine.Level > RangeMinLevel ||
         (CurrentLine.Level == RangeMinLevel && !PreviousRBrace &&
@@ -1387,7 +1386,8 @@ unsigned UnwrappedLineFormatter::format(
       }
 
       NextLine = Joiner.getNextMergedLine(DryRun, IndentTracker);
-      unsigned ColumnLimit = getColumnLimit(CurrentLine.InPPDirective, NextLine);
+      unsigned ColumnLimit =
+          getColumnLimit(CurrentLine.InPPDirective, NextLine);
       bool FitsIntoOneLine =
           !CurrentLine.ContainsMacroCall &&
           (CurrentLine.Last->TotalLength + Indent <= ColumnLimit ||
@@ -1567,12 +1567,9 @@ void UnwrappedLineFormatter::formatFirstToken(
     return;
   }
 
-  if (RootToken.Newlines < 0) {
-    RootToken.Newlines = computeNewlines(MergedLines, OriginalLines, Style);
-    assert(RootToken.Newlines >= 0);
-  }
+  unsigned Newlines = computeNewlines(MergedLines, OriginalLines, Style);
 
-  if (RootToken.Newlines > 0)
+  if (Newlines > 0)
     Indent = NewlineIndent;
 
   // Preprocessor directives get indented before the hash only if specified. In
@@ -1584,7 +1581,7 @@ void UnwrappedLineFormatter::formatFirstToken(
     Indent = 0;
   }
 
-  Whitespaces->replaceWhitespace(RootToken, RootToken.Newlines, Indent, Indent,
+  Whitespaces->replaceWhitespace(RootToken, Newlines, Indent, Indent,
                                  /*IsAligned=*/false,
                                  CurLine.InPPDirective &&
                                      !RootToken.HasUnescapedNewline);

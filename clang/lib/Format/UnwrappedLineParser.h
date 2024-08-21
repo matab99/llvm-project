@@ -44,7 +44,7 @@ struct UnwrappedLine {
 
   /// Whether this \c UnwrappedLine is part of a preprocessor directive.
   bool InPPDirective = false;
-  /// Whether this \c UnwrappedLine is part of a pramga directive.
+  /// Whether this \c UnwrappedLine is part of a pragma directive.
   bool InPragmaDirective = false;
   /// Whether it is part of a macro body.
   bool InMacroBody = false;
@@ -252,11 +252,6 @@ private:
   // was expanded from a macro call.
   bool containsExpansion(const UnwrappedLine &Line) const;
 
-  // Compute hash of the current preprocessor branch.
-  // This is used to identify the different branches, and thus track if block
-  // open and close in the same branch.
-  size_t computePPHash() const;
-
   bool parsingPPDirective() const { return CurrentLines != &Lines; }
 
   // FIXME: We are constantly running into bugs where Line.Level is incorrectly
@@ -349,9 +344,9 @@ private:
   };
 
   struct PPBranch {
-    PPBranch(PPBranchKind Kind, size_t Line) : Kind(Kind), Line(Line) {}
+    PPBranch(PPBranchKind Kind, int Index) : Kind(Kind), Index(Index) {}
     PPBranchKind Kind;
-    size_t Line;
+    int Index;
   };
 
   // Keeps a stack of currently active preprocessor branching directives.
@@ -364,6 +359,12 @@ private:
   // \c PPBranchLevel stores the current nesting level of preprocessor
   // branches during one pass over the code.
   int PPBranchLevel;
+
+  // Current branch index.
+  int PPBranchIndex;
+
+  // Total number of parsed conditional branches.
+  int PPBranchCount;
 
   // Contains the current branch (#if, #else or one of the #elif branches)
   // for each nesting level.

@@ -140,6 +140,13 @@ public:
     // directly after a newline.
     bool IsInsideToken;
 
+    // \c NewlineIndentLevel, \c NewlineSpaces and \c IsNewlineAligned provide
+    // information about empty line indentation and will be calculated in \c
+    // calculateLineBreakInformation
+    unsigned NewlineIndentLevel;
+    unsigned NewlineSpaces;
+    bool IsNewlineAligned;
+
     // \c IsTrailingComment, \c TokenLength, \c PreviousEndOfTokenColumn and
     // \c EscapedNewlineColumn will be calculated in
     // \c calculateLineBreakInformation.
@@ -261,6 +268,9 @@ private:
   /// Align Array Initializers over all \c Changes.
   void alignArrayInitializers();
 
+  /// Align empty lines over all \c Changes.
+  void alignEmptyLines();
+
   /// Align Array Initializers from change \p Start to change \p End at
   /// the specified \p Column.
   void alignArrayInitializers(unsigned Start, unsigned End);
@@ -350,7 +360,8 @@ private:
   /// Stores \p Text as the replacement for the whitespace in \p Range.
   void storeReplacement(SourceRange Range, StringRef Text);
   void appendNewlineText(std::string &Text, unsigned Newlines,
-                         const std::string &NewlineIndentText);
+                         unsigned NewlineIndentLevel, unsigned NewlineSpaces,
+                         bool IsNewlineAligned);
   void appendEscapedNewlineText(std::string &Text, unsigned Newlines,
                                 unsigned PreviousEndOfTokenColumn,
                                 unsigned EscapedNewlineColumn);

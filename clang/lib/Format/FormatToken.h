@@ -24,188 +24,229 @@
 namespace clang {
 namespace format {
 
-#define LIST_TOKEN_TYPES                                                       \
-  TYPE(ArrayInitializerLSquare)                                                \
-  TYPE(ArraySubscriptLSquare)                                                  \
-  TYPE(AttributeColon)                                                         \
-  TYPE(AttributeLParen)                                                        \
-  TYPE(AttributeMacro)                                                         \
-  TYPE(AttributeRParen)                                                        \
-  TYPE(AttributeSquare)                                                        \
-  TYPE(BinaryOperator)                                                         \
-  TYPE(BitFieldColon)                                                          \
-  TYPE(BlockComment)                                                           \
-  /* l_brace of a block that is not the body of a (e.g. loop) statement. */    \
-  TYPE(BlockLBrace)                                                            \
-  TYPE(BracedListLBrace)                                                       \
-  TYPE(CaseLabelArrow)                                                         \
-  /* The colon at the end of a case label. */                                  \
-  TYPE(CaseLabelColon)                                                         \
-  TYPE(CastRParen)                                                             \
-  TYPE(ClassLBrace)                                                            \
-  TYPE(ClassRBrace)                                                            \
-  /* ternary ?: expression */                                                  \
-  TYPE(ConditionalExpr)                                                        \
-  /* the condition in an if statement */                                       \
-  TYPE(ConditionLParen)                                                        \
-  TYPE(ConflictAlternative)                                                    \
-  TYPE(ConflictEnd)                                                            \
-  TYPE(ConflictStart)                                                          \
-  /* l_brace of if/for/while */                                                \
-  TYPE(ControlStatementLBrace)                                                 \
-  TYPE(ControlStatementRBrace)                                                 \
-  TYPE(CppCastLParen)                                                          \
-  TYPE(CSharpGenericTypeConstraint)                                            \
-  TYPE(CSharpGenericTypeConstraintColon)                                       \
-  TYPE(CSharpGenericTypeConstraintComma)                                       \
-  TYPE(CSharpNamedArgumentColon)                                               \
-  TYPE(CSharpNullable)                                                         \
-  TYPE(CSharpNullConditionalLSquare)                                           \
-  TYPE(CSharpStringLiteral)                                                    \
-  TYPE(CtorInitializerColon)                                                   \
-  TYPE(CtorInitializerComma)                                                   \
-  TYPE(CtorDtorDeclName)                                                       \
-  TYPE(DesignatedInitializerLSquare)                                           \
-  TYPE(DesignatedInitializerPeriod)                                            \
-  TYPE(DictLiteral)                                                            \
-  TYPE(DoWhile)                                                                \
-  TYPE(ElseLBrace)                                                             \
-  TYPE(ElseRBrace)                                                             \
-  TYPE(EnumLBrace)                                                             \
-  TYPE(EnumRBrace)                                                             \
-  TYPE(FatArrow)                                                               \
-  TYPE(ForEachMacro)                                                           \
-  TYPE(FunctionAnnotationRParen)                                               \
-  TYPE(FunctionDeclarationName)                                                \
-  TYPE(FunctionDeclarationLParen)                                              \
-  TYPE(FunctionLBrace)                                                         \
-  TYPE(FunctionLikeOrFreestandingMacro)                                        \
-  TYPE(FunctionTypeLParen)                                                     \
-  /* The colons as part of a C11 _Generic selection */                         \
-  TYPE(GenericSelectionColon)                                                  \
-  /* The colon at the end of a goto label. */                                  \
-  TYPE(GotoLabelColon)                                                         \
-  TYPE(IfMacro)                                                                \
-  TYPE(ImplicitStringLiteral)                                                  \
-  TYPE(InheritanceColon)                                                       \
-  TYPE(InheritanceComma)                                                       \
-  TYPE(InlineASMBrace)                                                         \
-  TYPE(InlineASMColon)                                                         \
-  TYPE(InlineASMSymbolicNameLSquare)                                           \
-  TYPE(JavaAnnotation)                                                         \
-  TYPE(JsAndAndEqual)                                                          \
-  TYPE(JsComputedPropertyName)                                                 \
-  TYPE(JsExponentiation)                                                       \
-  TYPE(JsExponentiationEqual)                                                  \
-  TYPE(JsPipePipeEqual)                                                        \
-  TYPE(JsPrivateIdentifier)                                                    \
-  TYPE(JsTypeColon)                                                            \
-  TYPE(JsTypeOperator)                                                         \
-  TYPE(JsTypeOptionalQuestion)                                                 \
-  TYPE(LambdaDefinitionLParen)                                                 \
-  TYPE(LambdaLBrace)                                                           \
-  TYPE(LambdaLSquare)                                                          \
-  TYPE(LeadingJavaAnnotation)                                                  \
-  TYPE(LineComment)                                                            \
-  TYPE(MacroBlockBegin)                                                        \
-  TYPE(MacroBlockEnd)                                                          \
-  TYPE(ModulePartitionColon)                                                   \
-  TYPE(NamespaceLBrace)                                                        \
-  TYPE(NamespaceMacro)                                                         \
-  TYPE(NamespaceRBrace)                                                        \
-  TYPE(NonNullAssertion)                                                       \
-  TYPE(NullCoalescingEqual)                                                    \
-  TYPE(NullCoalescingOperator)                                                 \
-  TYPE(NullPropagatingOperator)                                                \
-  TYPE(ObjCBlockLBrace)                                                        \
-  TYPE(ObjCBlockLParen)                                                        \
-  TYPE(ObjCDecl)                                                               \
-  TYPE(ObjCForIn)                                                              \
-  TYPE(ObjCMethodExpr)                                                         \
-  TYPE(ObjCMethodSpecifier)                                                    \
-  TYPE(ObjCProperty)                                                           \
-  TYPE(ObjCStringLiteral)                                                      \
-  TYPE(OverloadedOperator)                                                     \
-  TYPE(OverloadedOperatorLParen)                                               \
-  TYPE(PointerOrReference)                                                     \
-  TYPE(ProtoExtensionLSquare)                                                  \
-  TYPE(PureVirtualSpecifier)                                                   \
-  TYPE(RangeBasedForLoopColon)                                                 \
-  TYPE(RecordLBrace)                                                           \
-  TYPE(RecordRBrace)                                                           \
-  TYPE(RegexLiteral)                                                           \
-  TYPE(RequiresClause)                                                         \
-  TYPE(RequiresClauseInARequiresExpression)                                    \
-  TYPE(RequiresExpression)                                                     \
-  TYPE(RequiresExpressionLBrace)                                               \
-  TYPE(RequiresExpressionLParen)                                               \
-  TYPE(SelectorName)                                                           \
-  TYPE(StartOfName)                                                            \
-  TYPE(StatementAttributeLikeMacro)                                            \
-  TYPE(StatementMacro)                                                         \
-  /* A string that is part of a string concatenation. For C#, JavaScript, and  \
-   * Java, it is used for marking whether a string needs parentheses around it \
-   * if it is to be split into parts joined by `+`. For Verilog, whether       \
-   * braces need to be added to split it. Not used for other languages. */     \
-  TYPE(StringInConcatenation)                                                  \
-  TYPE(StructLBrace)                                                           \
-  TYPE(StructRBrace)                                                           \
-  TYPE(StructuredBindingLSquare)                                               \
-  TYPE(SwitchExpressionLabel)                                                  \
-  TYPE(SwitchExpressionLBrace)                                                 \
-  TYPE(TableGenBangOperator)                                                   \
-  TYPE(TableGenCondOperator)                                                   \
-  TYPE(TableGenCondOperatorColon)                                              \
-  TYPE(TableGenCondOperatorComma)                                              \
-  TYPE(TableGenDAGArgCloser)                                                   \
-  TYPE(TableGenDAGArgListColon)                                                \
-  TYPE(TableGenDAGArgListColonToAlign)                                         \
-  TYPE(TableGenDAGArgListComma)                                                \
-  TYPE(TableGenDAGArgListCommaToBreak)                                         \
-  TYPE(TableGenDAGArgOpener)                                                   \
-  TYPE(TableGenDAGArgOpenerToBreak)                                            \
-  TYPE(TableGenDAGArgOperatorID)                                               \
-  TYPE(TableGenDAGArgOperatorToBreak)                                          \
-  TYPE(TableGenListCloser)                                                     \
-  TYPE(TableGenListOpener)                                                     \
-  TYPE(TableGenMultiLineString)                                                \
-  TYPE(TableGenTrailingPasteOperator)                                          \
-  TYPE(TableGenValueSuffix)                                                    \
-  TYPE(TemplateCloser)                                                         \
-  TYPE(TemplateOpener)                                                         \
-  TYPE(TemplateString)                                                         \
-  TYPE(TrailingAnnotation)                                                     \
-  TYPE(TrailingReturnArrow)                                                    \
-  TYPE(TrailingUnaryOperator)                                                  \
-  TYPE(TypeDeclarationParen)                                                   \
-  TYPE(TypeName)                                                               \
-  TYPE(TypenameMacro)                                                          \
-  TYPE(UnaryOperator)                                                          \
-  TYPE(UnionLBrace)                                                            \
-  TYPE(UnionRBrace)                                                            \
-  TYPE(UntouchableMacroFunc)                                                   \
-  /* Like in 'assign x = 0, y = 1;' . */                                       \
-  TYPE(VerilogAssignComma)                                                     \
-  /* like in begin : block */                                                  \
-  TYPE(VerilogBlockLabelColon)                                                 \
-  /* The square bracket for the dimension part of the type name.               \
-   * In 'logic [1:0] x[1:0]', only the first '['. This way we can have space   \
-   * before the first bracket but not the second. */                           \
-  TYPE(VerilogDimensionedTypeName)                                             \
-  /* list of port connections or parameters in a module instantiation */       \
-  TYPE(VerilogInstancePortComma)                                               \
-  TYPE(VerilogInstancePortLParen)                                              \
-  /* A parenthesized list within which line breaks are inserted by the         \
-   * formatter, for example the list of ports in a module header. */           \
-  TYPE(VerilogMultiLineListLParen)                                             \
-  /* for the base in a number literal, not including the quote */              \
-  TYPE(VerilogNumberBase)                                                      \
-  /* like `(strong1, pull0)` */                                                \
-  TYPE(VerilogStrength)                                                        \
-  /* Things inside the table in user-defined primitives. */                    \
-  TYPE(VerilogTableItem)                                                       \
-  /* those that separate ports of different types */                           \
-  TYPE(VerilogTypeComma)                                                       \
+#define LIST_TOKEN_TYPES                                                         \
+  TYPE(ArrayInitializerLSquare)                                                  \
+  TYPE(ArraySubscriptLSquare)                                                    \
+  TYPE(AttributeColon)                                                           \
+  TYPE(AttributeLParen)                                                          \
+  TYPE(AttributeMacro)                                                           \
+  TYPE(AttributeRParen)                                                          \
+  TYPE(AttributeSquare)                                                          \
+  TYPE(BinaryOperator)                                                           \
+  TYPE(BitFieldColon)                                                            \
+  TYPE(BlockComment)                                                             \
+  /* l_brace of a block that is not the body of a (e.g. loop) statement. */      \
+  TYPE(BlockLBrace)                                                              \
+  TYPE(BracedListLBrace)                                                         \
+  TYPE(CaseLabelArrow)                                                           \
+  /* The colon at the end of a case label. */                                    \
+  TYPE(CaseLabelColon)                                                           \
+  TYPE(CastRParen)                                                               \
+  TYPE(ClassLBrace)                                                              \
+  TYPE(ClassRBrace)                                                              \
+  /* ternary ?: expression */                                                    \
+  TYPE(ConditionalExpr)                                                          \
+  /* the condition in an if statement */                                         \
+  TYPE(ConditionLParen)                                                          \
+  TYPE(ConflictAlternative)                                                      \
+  TYPE(ConflictEnd)                                                              \
+  TYPE(ConflictStart)                                                            \
+  /* l_brace of if/for/while */                                                  \
+  TYPE(ControlStatementLBrace)                                                   \
+  TYPE(ControlStatementRBrace)                                                   \
+  TYPE(CppCastLParen)                                                            \
+  TYPE(CSharpGenericTypeConstraint)                                              \
+  TYPE(CSharpGenericTypeConstraintColon)                                         \
+  TYPE(CSharpGenericTypeConstraintComma)                                         \
+  TYPE(CSharpNamedArgumentColon)                                                 \
+  TYPE(CSharpNullable)                                                           \
+  TYPE(CSharpNullConditionalLSquare)                                             \
+  TYPE(CSharpStringLiteral)                                                      \
+  TYPE(CtorInitializerColon)                                                     \
+  TYPE(CtorInitializerComma)                                                     \
+  TYPE(CtorDtorDeclName)                                                         \
+  TYPE(DesignatedInitializerLSquare)                                             \
+  TYPE(DesignatedInitializerPeriod)                                              \
+  TYPE(DictLiteral)                                                              \
+  TYPE(DoWhile)                                                                  \
+  TYPE(ElseLBrace)                                                               \
+  TYPE(ElseRBrace)                                                               \
+  TYPE(EnumLBrace)                                                               \
+  TYPE(EnumRBrace)                                                               \
+  TYPE(FatArrow)                                                                 \
+  TYPE(ForEachMacro)                                                             \
+  TYPE(FunctionAnnotationRParen)                                                 \
+  TYPE(FunctionDeclarationName)                                                  \
+  TYPE(FunctionDeclarationLParen)                                                \
+  TYPE(FunctionLBrace)                                                           \
+  TYPE(FunctionLikeOrFreestandingMacro)                                          \
+  TYPE(FunctionTypeLParen)                                                       \
+  /* The colons as part of a C11 _Generic selection */                           \
+  TYPE(GenericSelectionColon)                                                    \
+  /* The colon at the end of a goto label. */                                    \
+  TYPE(GotoLabelColon)                                                           \
+  TYPE(IfMacro)                                                                  \
+  TYPE(ImplicitStringLiteral)                                                    \
+  TYPE(InheritanceColon)                                                         \
+  TYPE(InheritanceComma)                                                         \
+  TYPE(InlineASMBrace)                                                           \
+  TYPE(InlineASMColon)                                                           \
+  TYPE(InlineASMSymbolicNameLSquare)                                             \
+  TYPE(JavaAnnotation)                                                           \
+  TYPE(JsAndAndEqual)                                                            \
+  TYPE(JsComputedPropertyName)                                                   \
+  TYPE(JsExponentiation)                                                         \
+  TYPE(JsExponentiationEqual)                                                    \
+  TYPE(JsPipePipeEqual)                                                          \
+  TYPE(JsPrivateIdentifier)                                                      \
+  TYPE(JsTypeColon)                                                              \
+  TYPE(JsTypeOperator)                                                           \
+  TYPE(JsTypeOptionalQuestion)                                                   \
+  TYPE(LambdaDefinitionLParen)                                                   \
+  TYPE(LambdaLBrace)                                                             \
+  TYPE(LambdaLSquare)                                                            \
+  TYPE(LeadingJavaAnnotation)                                                    \
+  TYPE(LineComment)                                                              \
+  TYPE(MacroBlockBegin)                                                          \
+  TYPE(MacroBlockEnd)                                                            \
+  TYPE(ModulePartitionColon)                                                     \
+  TYPE(NamespaceLBrace)                                                          \
+  TYPE(NamespaceMacro)                                                           \
+  TYPE(NamespaceRBrace)                                                          \
+  TYPE(NonNullAssertion)                                                         \
+  TYPE(NullCoalescingEqual)                                                      \
+  TYPE(NullCoalescingOperator)                                                   \
+  TYPE(NullPropagatingOperator)                                                  \
+  TYPE(ObjCBlockLBrace)                                                          \
+  TYPE(ObjCBlockLParen)                                                          \
+  TYPE(ObjCDecl)                                                                 \
+  TYPE(ObjCForIn)                                                                \
+  TYPE(ObjCMethodExpr)                                                           \
+  TYPE(ObjCMethodSpecifier)                                                      \
+  TYPE(ObjCProperty)                                                             \
+  TYPE(ObjCStringLiteral)                                                        \
+  TYPE(OverloadedOperator)                                                       \
+  TYPE(OverloadedOperatorLParen)                                                 \
+  TYPE(PointerOrReference)                                                       \
+  TYPE(ProtoExtensionLSquare)                                                    \
+  TYPE(PureVirtualSpecifier)                                                     \
+  TYPE(RangeBasedForLoopColon)                                                   \
+  TYPE(RecordLBrace)                                                             \
+  TYPE(RecordRBrace)                                                             \
+  TYPE(RegexLiteral)                                                             \
+  TYPE(RequiresClause)                                                           \
+  TYPE(RequiresClauseInARequiresExpression)                                      \
+  TYPE(RequiresExpression)                                                       \
+  TYPE(RequiresExpressionLBrace)                                                 \
+  TYPE(RequiresExpressionLParen)                                                 \
+  TYPE(SelectorName)                                                             \
+  TYPE(StartOfName)                                                              \
+  TYPE(StatementAttributeLikeMacro)                                              \
+  TYPE(StatementMacro)                                                           \
+  /* A string that is part of a string concatenation. For C#, JavaScript, and    \
+   * \                                                                           \
+   * \ \                                                                               \
+   * \ \ \                                                                               \
+   * \ \ \ \                                                                               \
+   * \ \ \ \ \                                                                               \
+   * \ \ \ \ \ \                                                                               \
+   * \ \ \ \ \ \ \                                                                               \
+   * \ \ \ \ \ \ \ \                                                                               \
+   * \                                                                         \ \
+   * \                                                                           \
+   * \ \                                                                               \
+   * \ \ \                                                                               \
+   * \ \ \ \                                                                               \
+   * \ \ \ \ \                                                                               \
+   * \ \ \ \ \ \                                                                               \
+   * \ \ \ \ \ \ \                                                                               \
+   * Java, it is used for marking whether a string needs parentheses around it   \
+   * \                                                                           \
+   * \ \                                                                               \
+   * \ \ \                                                                               \
+   * \ \ \ \                                                                               \
+   * \ \ \ \ \                                                                               \
+   * \ \ \ \ \ \                                                                               \
+   * \ \ \ \ \ \ \                                                                               \
+   * \ \ \ \ \ \ \ \                                                                               \
+   * \                                                                         \ \
+   * \                                                                           \
+   * \ \                                                                               \
+   * \ \ \                                                                               \
+   * \ \ \ \                                                                               \
+   * \ \ \ \ \                                                                               \
+   * \ \ \ \ \ \                                                                               \
+   * \ \ \ \ \ \ \                                                                               \
+   * if it is to be split into parts joined by `+`. For Verilog, whether \ \ \                                                                           \
+   * \                                                                           \
+   * \ \                                                                               \
+   * \ \ \                                                                               \
+   * \ \ \ braces need to be added to split it. Not used for other languages.    \
+   * \                                                                           \
+   * \ \                                                                               \
+   * \ \ \                                                                               \
+   */                                                                            \
+  TYPE(StringInConcatenation)                                                    \
+  TYPE(StructLBrace)                                                             \
+  TYPE(StructRBrace)                                                             \
+  TYPE(StructuredBindingLSquare)                                                 \
+  TYPE(SwitchExpressionLabel)                                                    \
+  TYPE(SwitchExpressionLBrace)                                                   \
+  TYPE(TableGenBangOperator)                                                     \
+  TYPE(TableGenCondOperator)                                                     \
+  TYPE(TableGenCondOperatorColon)                                                \
+  TYPE(TableGenCondOperatorComma)                                                \
+  TYPE(TableGenDAGArgCloser)                                                     \
+  TYPE(TableGenDAGArgListColon)                                                  \
+  TYPE(TableGenDAGArgListColonToAlign)                                           \
+  TYPE(TableGenDAGArgListComma)                                                  \
+  TYPE(TableGenDAGArgListCommaToBreak)                                           \
+  TYPE(TableGenDAGArgOpener)                                                     \
+  TYPE(TableGenDAGArgOpenerToBreak)                                              \
+  TYPE(TableGenDAGArgOperatorID)                                                 \
+  TYPE(TableGenDAGArgOperatorToBreak)                                            \
+  TYPE(TableGenListCloser)                                                       \
+  TYPE(TableGenListOpener)                                                       \
+  TYPE(TableGenMultiLineString)                                                  \
+  TYPE(TableGenTrailingPasteOperator)                                            \
+  TYPE(TableGenValueSuffix)                                                      \
+  TYPE(TemplateCloser)                                                           \
+  TYPE(TemplateOpener)                                                           \
+  TYPE(TemplateString)                                                           \
+  TYPE(TrailingAnnotation)                                                       \
+  TYPE(TrailingReturnArrow)                                                      \
+  TYPE(TrailingUnaryOperator)                                                    \
+  TYPE(TypeDeclarationParen)                                                     \
+  TYPE(TypeName)                                                                 \
+  TYPE(TypenameMacro)                                                            \
+  TYPE(UnaryOperator)                                                            \
+  TYPE(UnionLBrace)                                                              \
+  TYPE(UnionRBrace)                                                              \
+  TYPE(UntouchableMacroFunc)                                                     \
+  /* Like in 'assign x = 0, y = 1;' . */                                         \
+  TYPE(VerilogAssignComma)                                                       \
+  /* like in begin : block */                                                    \
+  TYPE(VerilogBlockLabelColon)                                                   \
+  /* The square bracket for the dimension part of the type name. \ \ \ \ \ \ \                                                                   \
+   * \                                                                           \
+   * \ \                                                                               \
+   * In 'logic [1:0] x[1:0]', only the first '['. This way we can have space \                                                                               \
+   * \ \ \ \ \ \ \ \ before the first bracket but not the second. */             \
+  TYPE(VerilogDimensionedTypeName)                                               \
+  /* list of port connections or parameters in a module instantiation */         \
+  TYPE(VerilogInstancePortComma)                                                 \
+  TYPE(VerilogInstancePortLParen)                                                \
+  /* A parenthesized list within which line breaks are inserted by the \ \ \ \                                                                         \
+   * \ \ \ \ \ formatter, for example the list of ports in a module header. */         \
+  TYPE(VerilogMultiLineListLParen)                                               \
+  /* for the base in a number literal, not including the quote */                \
+  TYPE(VerilogNumberBase)                                                        \
+  /* like `(strong1, pull0)` */                                                  \
+  TYPE(VerilogStrength)                                                          \
+  /* Things inside the table in user-defined primitives. */                      \
+  TYPE(VerilogTableItem)                                                         \
+  /* those that separate ports of different types */                             \
+  TYPE(VerilogTypeComma)                                                         \
   TYPE(Unknown)
 
 /// Determines the semantic type of a syntactic token, e.g. whether "<" is a
@@ -460,20 +501,24 @@ public:
   /// Used to set an operator precedence explicitly.
   prec::Level ForcedPrecedence = prec::Unknown;
 
+  /// The unique index of a conditional branch (preprocessor / merge conflict)
+  /// inside which the \c Token is contained. Each #if, #ifdef, #else, #elif
+  /// etc. preprocessor directive begins a new branch which is described by a
+  /// unique value (branch index). In a preprocessor conditional chain the
+  /// branch index of an #endif directive is assumed to be the same as a branch
+  /// index for the last conditional in that chain. Tokens contained in
+  /// unwrapped lines which are preprocessor directives (conditionals, defines,
+  /// pragmas etc.) always have the same branch index. Merge conflict sections
+  /// are treated in an identical way and given their own separate and unique
+  /// branch indices. The value 0 indicates that a token is not contained in any
+  /// conditional branch while -1 represents an undefined/unset value.
+  int BranchIndex = -1;
+
   /// The number of newlines immediately before the \c Token.
   ///
   /// This can be used to determine what the user wrote in the original code
   /// and thereby e.g. leave an empty line between two function definitions.
   unsigned NewlinesBefore = 0;
-
-  /// The number of newlines immediately before the \c Token after formatting.
-  ///
-  /// This is used to avoid overlapping whitespace replacements when \c Newlines
-  /// is recomputed for a finalized preprocessor branching directive.
-  int Newlines = -1;
-  
-  /// The indentation of empty newlines before the \c Token after formatting.
-  int NewlineIndent = -1;
 
   /// The offset just past the last '\n' in this token's leading
   /// whitespace (relative to \c WhiteSpaceStart). 0 if there is no '\n'.
