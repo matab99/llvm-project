@@ -35,7 +35,7 @@ public:
         Keywords(Keywords), SourceMgr(SourceMgr), Status(Status) {}
 
   /// Format the current block and return the penalty.
-  unsigned format(const SmallVectorImpl<AnnotatedLine *> &AnnotatedLines,
+  unsigned format(const SmallVectorImpl<AnnotatedLine *> &Lines,
                   bool DryRun = false, int AdditionalIndent = 0,
                   bool FixBadIndentation = false, unsigned FirstStartColumn = 0,
                   unsigned NextStartColumn = 0, unsigned LastStartColumn = 0);
@@ -43,8 +43,10 @@ public:
 private:
   /// Add a new line and the required indent before the first Token
   /// of the \c UnwrappedLine if there was no structural parsing error.
-  void formatFirstToken(const SmallVector<const AnnotatedLine *> &MergedLines,
-                        const SmallVectorImpl<AnnotatedLine *> &AnnotatedLines,
+  void formatFirstToken(const AnnotatedLine &Line,
+                        const AnnotatedLine *PreviousLine,
+                        const AnnotatedLine *PrevPrevLine,
+                        const SmallVectorImpl<AnnotatedLine *> &Lines,
                         unsigned Indent, unsigned NewlineIndent);
 
   /// Returns the column limit for a line, taking into account whether we
