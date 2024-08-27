@@ -1097,9 +1097,6 @@ void UnwrappedLineParser::parsePPIf(bool IfDef) {
     }
   }
 
-  for (auto &N : Line->Tokens)
-    N.Tok->BranchIndex = PPBranchIndex;
-
   --PPBranchLevel;
   parsePPUnknown();
   ++PPBranchLevel;
@@ -1120,25 +1117,17 @@ void UnwrappedLineParser::parsePPElse() {
     conditionalCompilationStart(/*Unreachable=*/true);
   conditionalCompilationAlternative();
 
-  for (auto &N : Line->Tokens)
-    N.Tok->BranchIndex = PPBranchIndex;
-
   --PPBranchLevel;
   parsePPUnknown();
   ++PPBranchLevel;
 }
 
 void UnwrappedLineParser::parsePPEndIf() {
-  int OldBranchIndex = PPBranchIndex;
-  conditionalCompilationEnd();
-  int NewBranchIndex = PPBranchIndex;
-
-  for (auto &N : Line->Tokens)
-    N.Tok->BranchIndex = OldBranchIndex;
-
-  PPBranchIndex = OldBranchIndex;
+  --PPBranchLevel;
   parsePPUnknown();
-  PPBranchIndex = NewBranchIndex;
+  ++PPBranchLevel;
+
+  conditionalCompilationEnd();
 
   // If the #endif of a potential include guard is the last thing in the file,
   // then we found an include guard.
@@ -1214,11 +1203,16 @@ void UnwrappedLineParser::parsePPPragma() {
 }
 
 void UnwrappedLineParser::parsePPUnknown() {
+  for (auto &N : Line->Tokens)
+    N.Tok->BranchIndex = PPBranchIndex;
+
   do {
     nextToken();
   } while (!eof());
+
   if (Style.IndentPPDirectives != FormatStyle::PPDIS_None)
     Line->Level += PPBranchLevel + 1;
+
   addUnwrappedLine();
 }
 

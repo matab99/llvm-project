@@ -1333,7 +1333,7 @@ unsigned UnwrappedLineFormatter::format(
   if (DryRun && CacheIt != PenaltyCache.end())
     return CacheIt->second;
 
-  assert(!Lines.empty());
+  assert(!AnnotatedLines.empty());
 
   LevelIndentTracker IndentTracker(Style, Keywords, AnnotatedLines[0]->Level,
                                    AdditionalIndent);
